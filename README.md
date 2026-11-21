@@ -3,6 +3,12 @@
 Monorepo prototypu wspierającego ocenę sytuacji wodnej działek rolnych. Projekt składa się
 z aplikacji React/Vite, API Fastify oraz bazy PostgreSQL z rozszerzeniem PostGIS.
 
+## Dokumentacja produktu
+
+- [Wymagania projektu](docs/product-requirements.md) — zakres konkursowy, wymagania,
+  kryteria akceptacji, materiały zgłoszenia i otwarte pytania.
+- [Instrukcje dla agentów](AGENTS.md) — zasady architektury, implementacji i walidacji zmian.
+
 ## Wymagania
 
 - Node.js 22+

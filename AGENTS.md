@@ -10,6 +10,18 @@ Work quickly, but preserve a sound foundation. Prefer the smallest complete impl
 that satisfies the current task. Do not trade correctness, data provenance, or honest handling
 of uncertainty for a more impressive-looking result.
 
+## Product requirements source
+
+Before planning or changing product behavior, data usage, analysis, recommendations, reports,
+validation, or submission materials, read `docs/product-requirements.md`. It is the maintained
+working interpretation of the competition brief and distinguishes organizer requirements,
+necessary interpretations, project proposals, and open questions.
+
+Current user instructions and the original competition brief take precedence if they conflict
+with the working specification. Do not silently resolve an open question or mark a requirement
+as implemented. When an explicit product decision changes the specification, update its decision
+status and preserve the distinction between organizer requirements and project choices.
+
 ## Product constraints
 
 - The primary user is a farmer without GIS, remote-sensing, or hydrology expertise.
@@ -317,4 +329,3 @@ A normal change is complete when:
 - relevant lint, typecheck, test, and build checks pass;
 - public behavior, configuration, and setup documentation remain accurate;
 - limitations, partial results, and unverified assumptions are reported clearly.
-
