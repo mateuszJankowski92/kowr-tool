@@ -9,6 +9,7 @@ import {
 } from "fastify-type-provider-zod";
 import { env } from "./config/env.js";
 import { type Database, PostgresDatabase } from "./db/database.js";
+import { registerErrorHandling } from "./errors/error-handler.js";
 import { createHealthRoutes } from "./routes/health.js";
 
 type CreateAppOptions = {
@@ -22,6 +23,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  registerErrorHandling(app);
 
   await app.register(cors, {
     origin: env.WEB_ORIGIN,

@@ -1,10 +1,6 @@
 import { type HealthResponse, HealthResponseSchema } from "@kowr/contracts";
+import { requestJson } from "./request-json";
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const response = await fetch("/api/health", {
-    headers: { Accept: "application/json" },
-  });
-
-  const payload: unknown = await response.json();
-  return HealthResponseSchema.parse(payload);
+  return requestJson("/api/health", HealthResponseSchema);
 }
