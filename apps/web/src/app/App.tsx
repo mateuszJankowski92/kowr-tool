@@ -1,3 +1,5 @@
+import { MapWorkspace } from "../features/map/MapWorkspace";
+
 export function App() {
-  return <div data-testid="app-root" />;
+  return <MapWorkspace />;
 }

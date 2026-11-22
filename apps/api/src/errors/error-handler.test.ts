@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import type { Database } from "../db/database.js";
 import { AppError } from "./app-error.js";
@@ -15,6 +15,31 @@ const database: Database = {
 };
 
 describe("API error handling", () => {
+  it.each(["/api/soil-profiles", "/api/terrain-contexts", "/api/terrain-textures"])(
+    "rejects missing, empty, repeated and unknown query fields for %s",
+    async (endpoint) => {
+      const parcelLocator = { findByIdentifier: vi.fn(), findByPoint: vi.fn() };
+      const app = await createApp({ database, logger: false, parcelLocator });
+      openApps.push(app);
+
+      for (const query of [
+        "",
+        "parcelIdentifier=",
+        "parcelIdentifier=%20",
+        "parcelIdentifier=one&parcelIdentifier=two",
+        "parcelIdentifier=one&unknown=value",
+      ]) {
+        const response = await app.inject({ method: "GET", url: `${endpoint}?${query}` });
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: { code: "INVALID_REQUEST", message: "The request payload is invalid." },
+        });
+      }
+      expect(parcelLocator.findByIdentifier).not.toHaveBeenCalled();
+      expect(parcelLocator.findByPoint).not.toHaveBeenCalled();
+    },
+  );
+
   it("returns the public error contract for an expected failure", async () => {
     const app = await createApp({ database, logger: false });
     openApps.push(app);

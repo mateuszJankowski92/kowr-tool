@@ -1,0 +1,52 @@
+
+
+{
+  "type": "FeatureCollection",
+  "features": [
+    
+    {
+      "type": "Feature",
+      "id": "wv0033_0-5cm_Q0.5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          {
+            "type": "Point",
+            "coordinates": [21.262834, 54.086045]
+          }
+        ]
+      },
+      "properties": {
+        "pixel_value": 388,
+        "unit": "g/kg"
+      }}
+  ]}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

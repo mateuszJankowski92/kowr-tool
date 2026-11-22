@@ -1,0 +1,830 @@
+import type { CropWaterProfile, Fao56GrowthStageDurations } from "./crop-water-profiles.js";
+
+type ProfileInput = {
+  coefficients: readonly [
+    number | readonly [number, number],
+    number | readonly [number, number],
+    number | readonly [number, number],
+  ];
+  rootsMeters: readonly [number, number];
+  depletionFraction: number;
+  stagesDays: readonly [number, number, number, number];
+  context: string;
+  standardStart: `${string}-${string}`;
+  perennial?: boolean;
+  winter?: boolean;
+  phaseProxy?: boolean;
+  parameterEdition?: "2025-vegetables" | "2025-field-crops";
+  limitations?: readonly string[];
+};
+
+function faoProfile<const Id extends string>(id: Id, label: string, input: ProfileInput) {
+  const [initialDays, developmentDays, midSeasonDays, lateSeasonDays] = input.stagesDays;
+  const durations: Fao56GrowthStageDurations = {
+    initialDays,
+    developmentDays,
+    midSeasonDays,
+    lateSeasonDays,
+  };
+  const exact = (value: number | readonly [number, number]) =>
+    typeof value === "number"
+      ? { minimum: value, maximum: value }
+      : { minimum: value[0], maximum: value[1] };
+  return {
+    id,
+    label,
+    seasonType: input.perennial
+      ? ("perennial" as const)
+      : input.winter
+        ? ("winter" as const)
+        : ("spring" as const),
+    iungCropGroup: "not-assigned",
+    cropCoefficients: {
+      initial: exact(input.coefficients[0]),
+      midSeason: exact(input.coefficients[1]),
+      lateSeason: exact(input.coefficients[2]),
+    },
+    maximumRootDepthMeters: { minimum: input.rootsMeters[0], maximum: input.rootsMeters[1] },
+    depletionFractionAtFiveMillimetersPerDay: input.depletionFraction,
+    stageDurationReferences: [
+      {
+        context: input.context,
+        durations,
+        use: "reference-only-not-poland-calibrated" as const,
+        ...(input.phaseProxy ? { source: "project-adapted-reference" as const } : {}),
+      },
+    ],
+    limitations: [
+      ...(input.parameterEdition
+        ? [
+            `FAO-56 revised edition (2025), Tables ${input.parameterEdition === "2025-vegetables" ? "6.1 and 8.1" : "6.2 and 8.2"}: Kc, maximum root depths and depletion fraction. https://doi.org/10.4060/cd6621en`,
+            "Growth-stage references use FAO-56 (1998), Table 11, or the explicitly identified project adaptation; not locally calibrated crop phenology.",
+          ]
+        : [
+            "FAO-56 (1998) Tables 11, 12 and 22 reference parameters; not locally calibrated crop phenology.",
+          ]),
+      ...(input.phaseProxy
+        ? [
+            "Stage lengths use a documented related-crop or temperate-season reference, not species-specific observations.",
+          ]
+        : []),
+      ...(input.perennial
+        ? [
+            "Established perennial root systems and a reference seasonal canopy are assumed; stand age, density, cutting dates and ground cover are not observed.",
+          ]
+        : []),
+      ...(input.limitations ?? []),
+    ],
+    standardSeasonStart: input.standardStart,
+  } satisfies CropWaterProfile & { standardSeasonStart: `${string}-${string}` };
+}
+
+// Parameters use the identified FAO edition; phase proxies are project assumptions.
+// Calendar starts are explicit prototype assumptions, not field observations.
+export const ADDITIONAL_CROP_WATER_PROFILES = [
+  faoProfile("spring-rye", "Spring rye for grain", {
+    coefficients: [0.3, 1, 0.25],
+    rootsMeters: [0.6, 1.2],
+    depletionFraction: 0.55,
+    stagesDays: [20, 25, 60, 30],
+    context: "Rye parameters; FAO-56 (1998) spring barley/oats/wheat phase proxy",
+    standardStart: "03-25",
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+  }),
+  faoProfile("winter-rye", "Winter rye for grain", {
+    coefficients: [0.3, 1, 0.25],
+    rootsMeters: [0.6, 1.2],
+    depletionFraction: 0.55,
+    stagesDays: [160, 75, 75, 25],
+    context: "Rye parameters; FAO-56 (1998) October Idaho winter-wheat phase proxy",
+    standardStart: "09-20",
+    winter: true,
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+    limitations: [
+      "The winter-wheat calendar does not establish rye harvest dates. Snow, frozen soil and winter survival are not simulated.",
+    ],
+  }),
+  faoProfile("winter-barley", "Winter barley for grain", {
+    coefficients: [0.3, 1.1, 0.25],
+    rootsMeters: [0.6, 1.2],
+    depletionFraction: 0.55,
+    stagesDays: [160, 75, 75, 25],
+    context: "Barley parameters; FAO-56 (1998) October Idaho winter-wheat phase proxy",
+    standardStart: "09-15",
+    winter: true,
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+    limitations: [
+      "The winter-wheat calendar does not establish barley harvest dates. Snow, frozen soil and winter survival are not simulated.",
+    ],
+  }),
+  faoProfile("spring-rapeseed", "Spring rapeseed for seed", {
+    coefficients: [0.5, 1.1, 0.35],
+    rootsMeters: [0.8, 1.3],
+    depletionFraction: 0.5,
+    stagesDays: [20, 32, 57, 20],
+    context:
+      "Project 129-day spring-rape reference: 20 initial days assumed; development ends around mean flowering onset (31 May), mid-season around mean technical maturity (27 July), then 20 days to harvest. Anchors use COBORU PDO Oleiste 2024, Table 5, mean sowing 10 April and harvest 16 August; flowering/maturity are proxies for FAO canopy boundaries, not observed canopy cover. https://coboru.gov.pl/Publikacje_COBORU/Wyniki_PDO/WPDO_220_Oleiste_2024.pdf",
+    standardStart: "04-10",
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+    limitations: [
+      "FAO canola parameters are a species reference, not a separate spring-form calibration. The COBORU PDO Oleiste 2024 Table 5 trial mean anchors the project calendar; other years, locations and cultivars differ. https://coboru.gov.pl/Publikacje_COBORU/Wyniki_PDO/WPDO_220_Oleiste_2024.pdf",
+    ],
+  }),
+  faoProfile("buckwheat", "Common buckwheat for grain", {
+    coefficients: [0.3, 1.05, 0.25],
+    rootsMeters: [0.6, 1.2],
+    depletionFraction: 0.55,
+    stagesDays: [13, 16, 38, 18],
+    context:
+      "Project common-buckwheat 85-day reference: FAO-56 (1998) spring cereal phase proportions scaled and rounded to the upper end of FAO EcoCrop's 55-85-day cool-region seed-maturity reference; individual phases are not observed. https://ecocrop.apps.fao.org/ecocrop/srv/en/cropView?id=2285",
+    standardStart: "05-15",
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+    limitations: [
+      "The adapted calendar is not calibrated for Polish cultivars; sowing, flowering and harvest on the parcel are not observed. It does not cover Tartary buckwheat or green-manure termination.",
+    ],
+  }),
+  faoProfile("strawberry", "Established open-field strawberry", {
+    coefficients: [0.4, 0.85, 0.75],
+    rootsMeters: [0.2, 0.3],
+    depletionFraction: 0.2,
+    stagesDays: [20, 30, 120, 40],
+    context:
+      "FAO-56 (1998) strawberry parameters; project 210-day seasonal canopy proxy from spring leaf emergence through autumn canopy decline, not planting or the end of fruit harvest",
+    standardStart: "04-01",
+    perennial: true,
+    phaseProxy: true,
+    limitations: [
+      "Assumes an established open-field stand. Fruit-harvest dates, repeat-bearing cultivars, tunnels, plastic mulch, post-harvest leaf cutting and regrowth are not represented. The reference end is not a declaration that fruit harvest or plant water use has ended.",
+    ],
+  }),
+  faoProfile("silage-maize", "Silage maize", {
+    coefficients: [0.3, 1.15, 0.95],
+    rootsMeters: [0.6, 1.5],
+    depletionFraction: 0.5,
+    stagesDays: [30, 40, 50, 20],
+    context:
+      "Project silage calendar: FAO-56 (1998) spring field-maize 30/40/50/30-day reference with the final phase shortened by 10 days for earlier green harvest; harvest date is not observed",
+    standardStart: "04-27",
+    phaseProxy: true,
+    parameterEdition: "2025-field-crops",
+  }),
+  faoProfile("sweet-potato", "Sweet potato", {
+    coefficients: [0.5, 1.1, 0.65],
+    rootsMeters: [1, 1.2],
+    depletionFraction: 0.45,
+    stagesDays: [20, 30, 60, 40],
+    context: "FAO-56 (1998) sweet potato, April Mediterranean reference",
+    standardStart: "05-20",
+    parameterEdition: "2025-vegetables",
+  }),
+  faoProfile("leek", "Leek", {
+    coefficients: [0.7, 1, 0.9],
+    rootsMeters: [0.3, 0.9],
+    depletionFraction: 0.3,
+    stagesDays: [15, 25, 70, 40],
+    context: "Leek parameters; FAO-56 (1998) dry-onion April Mediterranean phase proxy",
+    standardStart: "04-15",
+    phaseProxy: true,
+    parameterEdition: "2025-vegetables",
+  }),
+  faoProfile("parsnip", "Parsnip", {
+    coefficients: [0.5, 1.05, 1],
+    rootsMeters: [0.5, 1],
+    depletionFraction: 0.4,
+    stagesDays: [30, 40, 60, 20],
+    context: "Parsnip parameters; FAO-56 (1998) carrot February/March phase proxy",
+    standardStart: "04-01",
+    phaseProxy: true,
+    parameterEdition: "2025-vegetables",
+  }),
+  faoProfile("rutabaga", "Rutabaga for roots", {
+    coefficients: [0.5, 1.1, 1],
+    rootsMeters: [0.5, 1],
+    depletionFraction: 0.4,
+    stagesDays: [30, 40, 60, 20],
+    context: "Rutabaga root-harvest parameters; FAO-56 (1998) carrot phase proxy",
+    standardStart: "04-15",
+    phaseProxy: true,
+    parameterEdition: "2025-vegetables",
+  }),
+  faoProfile("turnip", "Turnip for roots", {
+    coefficients: [0.5, 1.05, 1],
+    rootsMeters: [0.5, 0.9],
+    depletionFraction: 0.4,
+    stagesDays: [20, 30, 20, 10],
+    context:
+      "Turnip root-harvest parameters; FAO-56 (1998) April Mediterranean crucifer phase proxy",
+    standardStart: "04-15",
+    phaseProxy: true,
+    parameterEdition: "2025-vegetables",
+  }),
+  faoProfile("safflower", "Safflower", {
+    coefficients: [0.35, 1.05, 0.25],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.6,
+    stagesDays: [25, 35, 55, 30],
+    context: "FAO-56 (1998) safflower, March high-latitude reference",
+    standardStart: "04-01",
+    parameterEdition: "2025-field-crops",
+  }),
+  faoProfile("faba-bean", "Faba bean for dry seed", {
+    coefficients: [0.5, 1.15, 0.3],
+    rootsMeters: [0.5, 0.7],
+    depletionFraction: 0.45,
+    stagesDays: [20, 30, 35, 15],
+    context: "FAO-56 faba bean, March/April Mediterranean reference",
+    standardStart: "03-25",
+  }),
+  faoProfile("broad-bean", "Fresh broad bean", {
+    coefficients: [0.5, 1.15, 1.1],
+    rootsMeters: [0.5, 0.7],
+    depletionFraction: 0.45,
+    stagesDays: [20, 30, 35, 15],
+    context: "FAO-56 fresh broad bean, March/April reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("dry-bean", "Dry beans and pulses", {
+    coefficients: [0.4, 1.15, 0.35],
+    rootsMeters: [0.6, 0.9],
+    depletionFraction: 0.45,
+    stagesDays: [20, 30, 40, 20],
+    context: "FAO-56 dry bean, May/June continental reference",
+    standardStart: "05-10",
+  }),
+  faoProfile("green-bean", "Green beans", {
+    coefficients: [0.5, 1.05, 0.9],
+    rootsMeters: [0.5, 0.7],
+    depletionFraction: 0.45,
+    stagesDays: [20, 30, 30, 10],
+    context: "FAO-56 green bean reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("dry-pea", "Peas for dry seed", {
+    coefficients: [0.5, 1.15, 0.3],
+    rootsMeters: [0.6, 1],
+    depletionFraction: 0.4,
+    stagesDays: [35, 25, 30, 20],
+    context: "FAO-56 pea, April Idaho reference",
+    standardStart: "03-25",
+  }),
+  faoProfile("fresh-pea", "Fresh peas", {
+    coefficients: [0.5, 1.15, 1.1],
+    rootsMeters: [0.6, 1],
+    depletionFraction: 0.35,
+    stagesDays: [20, 30, 35, 15],
+    context: "FAO-56 fresh pea reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("soybean", "Soybean", {
+    coefficients: [0.4, 1.15, 0.5],
+    rootsMeters: [0.6, 1.3],
+    depletionFraction: 0.5,
+    stagesDays: [20, 35, 60, 25],
+    context: "FAO-56 soybean, May central USA reference",
+    standardStart: "05-01",
+  }),
+  faoProfile("lentil", "Lentil", {
+    coefficients: [0.4, 1.1, 0.3],
+    rootsMeters: [0.6, 0.8],
+    depletionFraction: 0.5,
+    stagesDays: [20, 30, 60, 40],
+    context: "FAO-56 lentil, April Europe reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("chickpea", "Chickpea", {
+    coefficients: [0.4, 1, 0.35],
+    rootsMeters: [0.6, 1],
+    depletionFraction: 0.5,
+    stagesDays: [20, 30, 40, 20],
+    context: "FAO-56 chickpea coefficients and roots; dry-pulse phase reference",
+    standardStart: "04-15",
+    phaseProxy: true,
+  }),
+  faoProfile("sunflower", "Sunflower", {
+    coefficients: [0.35, [1, 1.15], 0.35],
+    rootsMeters: [0.8, 1.5],
+    depletionFraction: 0.45,
+    stagesDays: [25, 35, 45, 25],
+    context: "FAO-56 sunflower, April/May reference",
+    standardStart: "04-25",
+  }),
+  faoProfile("flax", "Flax", {
+    coefficients: [0.35, 1.1, 0.25],
+    rootsMeters: [1, 1.5],
+    depletionFraction: 0.5,
+    stagesDays: [25, 35, 50, 40],
+    context: "FAO-56 flax, April Europe reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("barley", "Spring barley", {
+    coefficients: [0.3, 1.15, 0.25],
+    rootsMeters: [1, 1.5],
+    depletionFraction: 0.55,
+    stagesDays: [20, 25, 60, 30],
+    context: "FAO-56 barley/oats/wheat, March/April reference",
+    standardStart: "03-25",
+  }),
+  faoProfile("oats", "Spring oats", {
+    coefficients: [0.3, 1.15, 0.25],
+    rootsMeters: [1, 1.5],
+    depletionFraction: 0.55,
+    stagesDays: [20, 25, 60, 30],
+    context: "FAO-56 barley/oats/wheat, March/April reference",
+    standardStart: "03-25",
+  }),
+  faoProfile("millet", "Millet", {
+    coefficients: [0.3, 1, 0.3],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.55,
+    stagesDays: [20, 30, 55, 35],
+    context: "FAO-56 millet, April central USA reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("sorghum", "Grain sorghum", {
+    coefficients: [0.3, [1, 1.1], 0.55],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.55,
+    stagesDays: [20, 35, 40, 30],
+    context: "FAO-56 grain sorghum, May/June USA/Pakistan/Mediterranean reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("sweet-maize", "Sweet maize", {
+    coefficients: [0.3, 1.15, 1.05],
+    rootsMeters: [0.8, 1.2],
+    depletionFraction: 0.5,
+    stagesDays: [20, 25, 25, 10],
+    context: "FAO-56 sweet maize, May/June reference",
+    standardStart: "05-10",
+  }),
+  faoProfile("beetroot", "Table beet", {
+    coefficients: [0.5, 1.05, 0.95],
+    rootsMeters: [0.6, 1],
+    depletionFraction: 0.5,
+    stagesDays: [25, 30, 25, 10],
+    context: "FAO-56 table beet reference",
+    standardStart: "04-20",
+  }),
+  faoProfile("carrot", "Carrot", {
+    coefficients: [0.7, 1.05, 0.95],
+    rootsMeters: [0.5, 1],
+    depletionFraction: 0.35,
+    stagesDays: [30, 40, 60, 20],
+    context: "FAO-56 carrot, February/March reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("celery", "Celery", {
+    coefficients: [0.7, 1.05, 1],
+    rootsMeters: [0.3, 0.5],
+    depletionFraction: 0.2,
+    stagesDays: [25, 40, 45, 15],
+    context: "FAO-56 celery, April reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("cabbage", "Cabbage", {
+    coefficients: [0.7, 1.05, 0.95],
+    rootsMeters: [0.5, 0.8],
+    depletionFraction: 0.45,
+    stagesDays: [40, 60, 50, 15],
+    context: "FAO-56 cabbage reference",
+    standardStart: "04-15",
+  }),
+  faoProfile("broccoli", "Broccoli", {
+    coefficients: [0.7, 1.05, 0.95],
+    rootsMeters: [0.4, 0.6],
+    depletionFraction: 0.45,
+    stagesDays: [35, 45, 40, 15],
+    context: "FAO-56 broccoli reference",
+    standardStart: "04-15",
+  }),
+  faoProfile("cauliflower", "Cauliflower", {
+    coefficients: [0.7, 1.05, 0.95],
+    rootsMeters: [0.4, 0.7],
+    depletionFraction: 0.45,
+    stagesDays: [35, 50, 40, 15],
+    context: "FAO-56 cauliflower reference",
+    standardStart: "04-15",
+  }),
+  faoProfile("lettuce", "Lettuce", {
+    coefficients: [0.7, 1, 0.95],
+    rootsMeters: [0.3, 0.5],
+    depletionFraction: 0.3,
+    stagesDays: [20, 30, 15, 10],
+    context: "FAO-56 lettuce, April reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("spinach", "Spinach", {
+    coefficients: [0.7, 1, 0.95],
+    rootsMeters: [0.3, 0.5],
+    depletionFraction: 0.2,
+    stagesDays: [20, 20, 25, 5],
+    context: "FAO-56 spinach reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("radish", "Radish", {
+    coefficients: [0.7, 0.9, 0.85],
+    rootsMeters: [0.3, 0.5],
+    depletionFraction: 0.3,
+    stagesDays: [5, 10, 15, 5],
+    context: "FAO-56 radish, March/April Europe reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("dry-onion", "Dry onion", {
+    coefficients: [0.7, 1.05, 0.75],
+    rootsMeters: [0.3, 0.6],
+    depletionFraction: 0.3,
+    stagesDays: [15, 25, 70, 40],
+    context: "FAO-56 dry onion, April reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("green-onion", "Green onion", {
+    coefficients: [0.7, 1, 1],
+    rootsMeters: [0.3, 0.6],
+    depletionFraction: 0.3,
+    stagesDays: [25, 30, 10, 5],
+    context: "FAO-56 green onion, April/May reference",
+    standardStart: "04-01",
+  }),
+  faoProfile("garlic", "Garlic", {
+    coefficients: [0.7, 1, 0.7],
+    rootsMeters: [0.3, 0.5],
+    depletionFraction: 0.3,
+    stagesDays: [15, 25, 70, 40],
+    context: "FAO-56 garlic coefficients and roots; dry-onion phase proxy",
+    standardStart: "04-01",
+    phaseProxy: true,
+  }),
+  faoProfile("tomato", "Tomato", {
+    coefficients: [0.6, 1.15, [0.7, 0.9]],
+    rootsMeters: [0.7, 1.5],
+    depletionFraction: 0.4,
+    stagesDays: [30, 40, 45, 30],
+    context: "FAO-56 tomato, April/May reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("pepper", "Sweet pepper", {
+    coefficients: [0.6, 1.05, 0.9],
+    rootsMeters: [0.5, 1],
+    depletionFraction: 0.3,
+    stagesDays: [30, 35, 40, 20],
+    context: "FAO-56 sweet pepper, April/June Europe reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("eggplant", "Eggplant", {
+    coefficients: [0.6, 1.05, 0.9],
+    rootsMeters: [0.7, 1.2],
+    depletionFraction: 0.45,
+    stagesDays: [30, 40, 40, 20],
+    context: "FAO-56 eggplant reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("cucumber", "Fresh cucumber", {
+    coefficients: [0.6, 1, 0.75],
+    rootsMeters: [0.7, 1.2],
+    depletionFraction: 0.5,
+    stagesDays: [20, 30, 40, 15],
+    context: "FAO-56 cucumber reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("pumpkin", "Pumpkin and winter squash", {
+    coefficients: [0.5, 1, 0.8],
+    rootsMeters: [1, 1.5],
+    depletionFraction: 0.35,
+    stagesDays: [25, 35, 35, 25],
+    context: "FAO-56 pumpkin, June Europe reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("zucchini", "Summer squash and zucchini", {
+    coefficients: [0.5, 0.95, 0.75],
+    rootsMeters: [0.6, 1],
+    depletionFraction: 0.5,
+    stagesDays: [20, 30, 25, 15],
+    context: "FAO-56 zucchini, May/June Europe reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("melon", "Sweet melon", {
+    coefficients: [0.5, 1.05, 0.75],
+    rootsMeters: [0.8, 1.5],
+    depletionFraction: 0.4,
+    stagesDays: [25, 35, 40, 20],
+    context: "FAO-56 sweet melon reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("watermelon", "Watermelon", {
+    coefficients: [0.4, 1, 0.75],
+    rootsMeters: [0.8, 1.5],
+    depletionFraction: 0.4,
+    stagesDays: [20, 30, 30, 30],
+    context: "FAO-56 watermelon, Italy reference",
+    standardStart: "05-15",
+  }),
+  faoProfile("pome-orchard", "Established apple, cherry or pear orchard", {
+    coefficients: [0.5, 1.2, 0.95],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.5,
+    stagesDays: [20, 70, 90, 30],
+    context: "FAO-56 deciduous orchard, high latitudes; active ground cover and killing frost",
+    standardStart: "03-20",
+    perennial: true,
+  }),
+  faoProfile("stone-orchard", "Established stone-fruit orchard", {
+    coefficients: [0.5, 1.15, 0.9],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.5,
+    stagesDays: [20, 70, 90, 30],
+    context:
+      "FAO-56 stone-fruit, active ground cover and killing frost; deciduous orchard phase reference",
+    standardStart: "03-20",
+    perennial: true,
+    phaseProxy: true,
+  }),
+  faoProfile("grape", "Established wine grapes", {
+    coefficients: [0.3, 0.7, 0.45],
+    rootsMeters: [1, 2],
+    depletionFraction: 0.45,
+    stagesDays: [20, 50, 90, 20],
+    context: "FAO-56 grapes, high-latitude reference",
+    standardStart: "04-20",
+    perennial: true,
+  }),
+  faoProfile("hops", "Established hops", {
+    coefficients: [0.3, 1.05, 0.85],
+    rootsMeters: [1, 1.2],
+    depletionFraction: 0.5,
+    stagesDays: [25, 40, 80, 10],
+    context: "FAO-56 hops, April Idaho reference",
+    standardStart: "04-01",
+    perennial: true,
+  }),
+  faoProfile("berry", "Established berry bushes", {
+    coefficients: [0.3, 1.05, 0.5],
+    rootsMeters: [0.6, 1.2],
+    depletionFraction: 0.5,
+    stagesDays: [20, 70, 90, 30],
+    context: "FAO-56 berry coefficients and roots; temperate deciduous-canopy phase proxy",
+    standardStart: "03-20",
+    perennial: true,
+    phaseProxy: true,
+  }),
+  faoProfile("mint", "Established mint", {
+    coefficients: [0.6, 1.15, 1.1],
+    rootsMeters: [0.4, 0.8],
+    depletionFraction: 0.4,
+    stagesDays: [20, 40, 120, 30],
+    context:
+      "FAO-56 mint coefficients and roots; project temperate reference season without observed cut dates",
+    standardStart: "04-01",
+    perennial: true,
+    phaseProxy: true,
+  }),
+] as const;
+
+export const ADDITIONAL_STANDARD_SEASON_STARTS = Object.fromEntries(
+  ADDITIONAL_CROP_WATER_PROFILES.map(({ id, standardSeasonStart }) => [
+    id,
+    {
+      monthDay: standardSeasonStart,
+      description:
+        "Project reference start for a temperate production season; not a field observation.",
+    },
+  ]),
+) as Record<
+  (typeof ADDITIONAL_CROP_WATER_PROFILES)[number]["id"],
+  {
+    monthDay: `${string}-${string}`;
+    description: string;
+  }
+>;
+
+export const ADDITIONAL_ARIMR_PROFILE_GROUPS = [
+  { profileId: "spring-rye", crops: ["zyto-jare"] },
+  { profileId: "winter-rye", crops: ["zyto-ozime"] },
+  { profileId: "winter-barley", crops: ["jeczmien-ozimy"] },
+  { profileId: "spring-rapeseed", crops: ["rzepak-jary"] },
+  { profileId: "buckwheat", crops: ["gryka-zwyczajna"] },
+  { profileId: "strawberry", crops: ["truskawka"] },
+  { profileId: "silage-maize", crops: ["kukurydza-na-kiszonke"] },
+  { profileId: "sweet-potato", crops: ["batat"] },
+  { profileId: "leek", crops: ["por"] },
+  { profileId: "parsnip", crops: ["pasternak-zwyczajny"] },
+  { profileId: "rutabaga", crops: ["brukiew", "brukiew-jadalna", "brukiew-pastewna"] },
+  { profileId: "turnip", crops: ["rzepa-jadalna", "rzepa-pastewna"] },
+  { profileId: "safflower", crops: ["krokosz-barwierski"] },
+  { profileId: "faba-bean", crops: ["bobik"] },
+  { profileId: "broad-bean", crops: ["bob"] },
+  {
+    profileId: "dry-bean",
+    approximateCrops: [
+      "fasola",
+      "fasola-zwykla",
+      "fasola-zwykla-karlowa",
+      "fasola-zwykla-tyczna",
+      "fasola-wielokwiatowa",
+    ],
+    crops: [
+      "fasola",
+      "fasola-zwykla",
+      "fasola-zwykla-karlowa",
+      "fasola-zwykla-tyczna",
+      "fasola-wielokwiatowa",
+    ],
+  },
+  {
+    profileId: "dry-pea",
+    approximateCrops: [
+      "groch",
+      "groch-siewny",
+      "groch-siewny-jadalny",
+      "groch-siewny-pastewny-peluszka",
+      "peluszka",
+    ],
+    crops: [
+      "groch",
+      "groch-siewny",
+      "groch-siewny-jadalny",
+      "groch-siewny-pastewny-peluszka",
+      "peluszka",
+    ],
+  },
+  {
+    profileId: "fresh-pea",
+    crops: ["groch-cukrowy", "groch-luskowy", "groch-zwyczajny-cukrowy", "groch-zwyczajny-luskowy"],
+  },
+  { profileId: "soybean", crops: ["soja-zwyczajna"] },
+  { profileId: "chickpea", crops: ["ciecierzyca-pospolita"] },
+  {
+    profileId: "sunflower",
+    approximateCrops: ["slonecznik", "slonecznik-pastewny"],
+    crops: ["slonecznik", "slonecznik-oleisty", "slonecznik-zwyczajny", "slonecznik-pastewny"],
+  },
+  {
+    profileId: "flax",
+    approximateCrops: ["len", "len-wloknisty", "len-zwyczajny"],
+    crops: ["len", "len-oleisty", "len-wloknisty", "len-zwyczajny"],
+  },
+  { profileId: "barley", crops: ["jeczmien-jary"] },
+  {
+    profileId: "oats",
+    approximateCrops: ["owies-bizantyjski", "owies-szorstki"],
+    crops: ["owies-bizantyjski", "owies-nagi", "owies-siewny", "owies-szorstki", "owies-zwyczajny"],
+  },
+  { profileId: "millet", approximateCrops: ["proso-zwyczajne"], crops: ["proso-zwyczajne"] },
+  {
+    profileId: "sorghum",
+    approximateCrops: ["sorgo", "sorgo-techniczne"],
+    crops: ["sorgo", "sorgo-techniczne"],
+  },
+  { profileId: "sweet-maize", crops: ["kukurydza-cukrowa"] },
+  {
+    profileId: "beetroot",
+    approximateCrops: ["burak", "burak-lisciowy-bocwina"],
+    crops: ["burak", "burak-cwiklowy", "burak-lisciowy-bocwina"],
+  },
+  {
+    profileId: "carrot",
+    approximateCrops: ["marchew-pastewna"],
+    crops: ["marchew", "marchew-jadalna", "marchew-pastewna", "marchew-zwyczajna"],
+  },
+  {
+    profileId: "celery",
+    approximateCrops: ["seler", "seler-korzeniowy"],
+    crops: ["seler", "seler-korzeniowy", "seler-naciowy"],
+  },
+  {
+    profileId: "cabbage",
+    approximateCrops: [
+      "kapusta-warzywna",
+      "kapusta-wloska",
+      "kapusta-chinska",
+      "kapusta-pekinska",
+      "kapusta-brukselska",
+      "jarmuz",
+      "kalarepa",
+    ],
+    crops: [
+      "kapusta-glowiasta-biala",
+      "kapusta-glowiasta-czerwona",
+      "kapusta-warzywna",
+      "kapusta-wloska",
+      "kapusta-chinska",
+      "kapusta-pekinska",
+      "kapusta-brukselska",
+      "jarmuz",
+      "kalarepa",
+    ],
+  },
+  { profileId: "broccoli", crops: ["brokul-wloski"] },
+  { profileId: "cauliflower", crops: ["kalafior"] },
+  {
+    profileId: "lettuce",
+    approximateCrops: ["salata-lodygowa-szparagowa", "endywia", "endywia-eskariola"],
+    crops: [
+      "salata",
+      "salata-glowiasta",
+      "salata-glowiasta-krucha",
+      "salata-glowiasta-maslowa",
+      "salata-kedzierzawa",
+      "salata-listkowa-rozetowa",
+      "salata-lodygowa-szparagowa",
+      "salata-rzymska",
+      "salata-zwyczajna",
+      "endywia",
+      "endywia-eskariola",
+    ],
+  },
+  { profileId: "spinach", crops: ["szpinak-zwyczajny"] },
+  {
+    profileId: "radish",
+    approximateCrops: ["rzodkiew", "rzodkiew-biala", "rzodkiew-czarna"],
+    crops: ["rzodkiewka", "rzodkiew", "rzodkiew-biala", "rzodkiew-czarna"],
+  },
+  {
+    profileId: "dry-onion",
+    approximateCrops: ["cebula-kartoflanka", "cebula-perlowa", "cebula-szalotka", "szalotka"],
+    crops: [
+      "cebula-zwyczajna",
+      "cebula-kartoflanka",
+      "cebula-perlowa",
+      "cebula-szalotka",
+      "szalotka",
+    ],
+  },
+  {
+    profileId: "green-onion",
+    approximateCrops: ["cebula-siedmiolatka", "siedmiolatka", "szczypiorek"],
+    crops: ["cebula-siedmiolatka", "siedmiolatka", "szczypiorek"],
+  },
+  { profileId: "garlic", crops: ["czosnek", "czosnek-pospolity"] },
+  {
+    profileId: "tomato",
+    approximateCrops: ["pomidor-skorzasty"],
+    crops: ["pomidor", "pomidor-skorzasty"],
+  },
+  { profileId: "pepper", crops: ["papryka"] },
+  { profileId: "eggplant", crops: ["oberzyna-baklazan"] },
+  { profileId: "cucumber", crops: ["ogorek"] },
+  {
+    profileId: "pumpkin",
+    approximateCrops: [
+      "dynia-figolistna",
+      "dynia-olbrzymia",
+      "dynia-pizmowa",
+      "dynia-oleista",
+      "dynia-pastewna",
+    ],
+    crops: [
+      "dynia-figolistna",
+      "dynia-olbrzymia",
+      "dynia-pizmowa",
+      "dynia-zwyczajna",
+      "dynia-oleista",
+      "dynia-pastewna",
+    ],
+  },
+  { profileId: "zucchini", crops: ["cukinia", "kabaczek", "patison"] },
+  { profileId: "melon", crops: ["melon"] },
+  { profileId: "watermelon", crops: ["arbuz-kawon"] },
+  { profileId: "pome-orchard", crops: ["jablon", "grusza", "czeresnia", "wisnia"] },
+  {
+    profileId: "stone-orchard",
+    crops: [
+      "brzoskwinia-i-nektaryna",
+      "brzoskwinia-zwyczajna",
+      "nektaryna",
+      "morela",
+      "sliwa",
+      "sliwa-japonska",
+    ],
+  },
+  { profileId: "grape", crops: ["winorosl"] },
+  { profileId: "hops", crops: ["chmiel"] },
+  {
+    profileId: "berry",
+    crops: [
+      "agrest-porzeczka-agrest",
+      "porzeczka",
+      "malina",
+      "jezyna",
+      "borowka-wysoka-i-srednia",
+      "borowka-niska",
+      "borowka-brusznica",
+      "aronia-czarnoowocowa",
+      "jagoda-kamczacka-suchodrzew-jadalny",
+    ],
+  },
+  {
+    profileId: "mint",
+    crops: [
+      "mieta",
+      "mieta-dlugolistna",
+      "mieta-kedzierzawa",
+      "mieta-okraglolistna",
+      "mieta-pieprzowa",
+      "mieta-zielona",
+    ],
+  },
+] as const;

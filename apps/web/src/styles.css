@@ -19,6 +19,11 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -47,28 +52,37 @@
 }
 
 :root {
-  font-family: system-ui, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --workspace-header-height: 5rem;
+  --workspace-panel-width: 25rem;
+  --warning: #faf0d9;
+  --warning-foreground: #6d4e18;
+  --info: #eff6ff;
+  --info-foreground: #1e4a70;
+  --info-border: #d6e6f5;
+  --report-background: #f5f7f5;
+  --surface-shadow: 0 4px 18px rgb(23 53 36 / 6%);
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #20392e;
+  --card: #ffffff;
+  --card-foreground: #20392e;
+  --popover: #ffffff;
+  --popover-foreground: #20392e;
+  --primary: #246448;
+  --primary-foreground: #ffffff;
+  --secondary: #edf3ee;
+  --secondary-foreground: #294e3a;
+  --muted: #f3f6f3;
+  --muted-foreground: #5c6e62;
+  --accent: #edf3ee;
+  --accent-foreground: oklch(0.26 0.038 151);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #dce5de;
+  --input: #c3cfc6;
+  --ring: #347750;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -85,6 +99,9 @@
 }
 
 .dark {
+  --info: #142b41;
+  --info-foreground: #c6e0f5;
+  --info-border: #2c4b67;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -124,10 +141,1025 @@
     box-sizing: border-box;
   }
 
+  html,
+  #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    overflow: hidden;
   }
+
+  button,
+  input,
+  select,
+  summary,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input {
+    caret-color: var(--primary);
+  }
+
+  ::selection {
+    background: oklch(0.78 0.08 151 / 45%);
+    color: var(--foreground);
+  }
+}
+
+.ol-viewport,
+.ol-layer,
+.ol-layer canvas {
+  border-radius: 0;
+}
+
+.workspace {
+  display: grid;
+  grid-template-areas: "header header" "panel map";
+  grid-template-columns: var(--workspace-panel-width) minmax(0, 1fr);
+  grid-template-rows: var(--workspace-header-height) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  scrollbar-color: var(--input) transparent;
+  scrollbar-width: thin;
+}
+
+.workspace-header {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  grid-area: header;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+.workspace-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.workspace-brand:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+
+.workspace-analysis-panel {
+  z-index: 20;
+  grid-area: panel;
+  min-width: 0;
+  padding: 2rem 1.75rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+  scrollbar-width: thin;
+  scrollbar-color: var(--input) transparent;
+  view-transition-name: analysis-panel;
+}
+
+.workspace-map-shell {
+  position: relative;
+  z-index: 0;
+  grid-area: map;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--secondary);
+  view-transition-name: parcel-map;
+}
+
+.workspace-map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.workspace-map-status {
+  position: absolute;
+  z-index: 10;
+  right: 1rem;
+  bottom: 2.5rem;
+  left: 1rem;
+  width: min(26rem, calc(100% - 2rem));
+}
+
+.workspace-map-attribution {
+  position: absolute;
+  z-index: 10;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  max-width: calc(100% - 1rem);
+}
+
+.workspace-report-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: report;
+  min-width: 0;
+}
+
+.workspace-report-body > section {
+  margin: 0;
+  padding: 2rem;
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow: var(--surface-shadow);
+}
+
+.workspace-report-body > .report-evidence {
+  margin-top: 0.75rem;
+  padding: 0 0.5rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.source-drawer-body {
+  scrollbar-color: var(--input) transparent;
+  scrollbar-width: thin;
+}
+
+.source-details {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.source-details :where(h3, h4) {
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.source-details a {
+  color: var(--primary);
+  text-underline-offset: 4px;
+}
+
+.source-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.source-sections > * + * {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+.source-facts > div {
+  display: grid;
+  gap: 0.375rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-block: 0.875rem;
+}
+
+.source-facts > div:first-child {
+  padding-top: 0;
+}
+
+.source-facts > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.source-facts dt {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.source-facts dd {
+  margin: 0;
+  color: var(--foreground);
+  font-weight: 400;
+}
+
+.source-records > li + li {
+  margin-top: 0.875rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.875rem;
+}
+
+@media (min-width: 480px) {
+  .source-facts > div {
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  }
+
+  .source-facts > div > p {
+    grid-column: 2;
+  }
+}
+
+.report-evidence-details {
+  border-top: 1px solid var(--border);
+}
+
+.report-evidence-details:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
+.report-evidence-details > summary:hover {
+  color: var(--primary);
+}
+
+.report-evidence-content > section {
+  box-shadow: none;
+}
+
+@supports (interpolate-size: allow-keywords) and selector(details::details-content) {
+  .workspace details {
+    interpolate-size: allow-keywords;
+  }
+
+  .workspace details::details-content {
+    height: 0;
+    overflow: clip;
+    transition:
+      height 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      content-visibility 180ms allow-discrete;
+  }
+
+  .workspace details[open]::details-content {
+    height: auto;
+    transition-duration: 240ms;
+  }
+}
+
+.report-footnote {
+  max-width: 70ch;
+  margin: 0.25rem 0.5rem 0;
+}
+
+.terrain-section {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow: var(--surface-shadow);
+}
+
+.terrain-source-unavailable {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 1.35rem 1.5rem 1.5rem;
+  padding: 1rem 0;
+  border-block: 1px solid var(--border);
+}
+
+.terrain-source-unavailable > svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  margin-top: 0.1rem;
+  color: var(--muted-foreground);
+}
+
+.terrain-source-unavailable p {
+  max-width: 64rem;
+  margin: 0.25rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.terrain-model-lazy,
+.terrain-model-shell {
+  min-height: 28rem;
+}
+
+.terrain-model-shell {
+  position: relative;
+  overflow: hidden;
+  border-block: 1px solid color-mix(in oklch, var(--border), var(--primary) 18%);
+  background: #dfe8dd;
+}
+
+.terrain-model-canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.terrain-model-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.terrain-model-controls {
+  position: absolute;
+  z-index: 2;
+  top: 0.8rem;
+  left: 0.8rem;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 0.7rem;
+  background: rgb(250 252 248 / 88%);
+  box-shadow: 0 8px 22px rgb(16 38 26 / 15%);
+  backdrop-filter: blur(8px);
+}
+
+.terrain-model-controls button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--secondary-foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.terrain-model-controls button:hover {
+  background: var(--secondary);
+}
+
+.terrain-model-controls button[aria-pressed="true"] {
+  color: var(--primary);
+  background: var(--secondary);
+}
+
+.terrain-model-controls button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.terrain-model-controls svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.terrain-model-note {
+  position: absolute;
+  z-index: 2;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  max-width: calc(100% - 1.6rem);
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.45rem;
+  color: var(--secondary-foreground);
+  background: rgb(250 252 248 / 86%);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  backdrop-filter: blur(8px);
+}
+
+.terrain-model-placeholder,
+.terrain-model-fallback,
+.terrain-loading {
+  display: grid;
+  min-height: 28rem;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--secondary), var(--background) 42%);
+  text-align: center;
+}
+
+.terrain-model-placeholder svg,
+.terrain-model-fallback svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.terrain-model-fallback span {
+  font-size: 0.8rem;
+}
+
+.terrain-loading {
+  display: block;
+  min-height: 17rem;
+  margin-top: 1rem;
+  animation: terrain-pulse 1.8s ease-in-out infinite;
+}
+
+.terrain-error {
+  display: flex;
+  gap: 0.8rem;
+  margin: 1.25rem 1.5rem 1.5rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in oklch, var(--destructive), var(--background) 62%);
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--destructive), var(--background) 94%);
+}
+
+.terrain-error > svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: none;
+  color: var(--destructive);
+}
+
+.terrain-error p {
+  margin: 0.25rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.terrain-error button {
+  margin-top: 0.7rem;
+  padding: 0;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.terrain-surroundings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
+.terrain-context-panel {
+  min-width: 0;
+  padding: 1.35rem 1.5rem 1.5rem;
+}
+
+.terrain-context-panel + .terrain-context-panel {
+  border-left: 1px solid var(--border);
+}
+
+.terrain-context-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.terrain-context-panel-heading > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.terrain-context-panel-heading svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  color: var(--primary);
+}
+
+.terrain-context-panel-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.terrain-context-lead {
+  max-width: 65ch;
+  min-height: 3rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 570;
+  line-height: 1.55;
+}
+
+.terrain-hydrology-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.terrain-hydrology-list button {
+  display: flex;
+  min-height: 3.1rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.terrain-hydrology-list li > button > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.terrain-hydrology-list strong,
+.terrain-hydrology-list small {
+  display: block;
+}
+
+.terrain-hydrology-list strong {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terrain-hydrology-list small {
+  margin-top: 0.1rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+}
+
+.terrain-hydrology-list li > button > span:last-child {
+  flex: none;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.terrain-land-use-list {
+  margin-top: 1rem;
+}
+
+.terrain-land-use-item + .terrain-land-use-item {
+  margin-top: 0.75rem;
+}
+
+.terrain-land-use-item > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+}
+
+.terrain-land-use-list strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 680;
+}
+
+.terrain-land-use-track {
+  height: 0.42rem;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.terrain-land-use-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.terrain-context-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding: 0.85rem 0;
+  border-block: 1px solid var(--border);
+}
+
+.terrain-context-empty.compact {
+  padding: 0.7rem 0;
+}
+
+.terrain-context-empty svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--muted-foreground);
+}
+
+.terrain-context-empty p,
+.terrain-context-footnote {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.terrain-context-footnote {
+  margin-top: 0.75rem;
+}
+
+.terrain-context-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+.terrain-context-status > div {
+  display: flex;
+  gap: 0.65rem;
+  padding: 1rem 1.15rem;
+  background: var(--background);
+}
+
+.terrain-context-status svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin-top: 0.1rem;
+  color: var(--primary);
+}
+
+.terrain-context-status p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.terrain-context-status strong,
+.terrain-context-status span {
+  display: block;
+}
+
+.terrain-context-status span {
+  margin-top: 0.2rem;
+  color: var(--muted-foreground);
+}
+
+@keyframes terrain-pulse {
+  50% {
+    opacity: 0.62;
+  }
+}
+
+.workspace[data-view="report"] {
+  --workspace-content-gutter: max(1.5rem, calc((100vw - 70rem) / 2));
+  grid-template-areas: "header header" "panel map" "report report";
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.65fr);
+  grid-template-rows: var(--workspace-header-height) max-content max-content;
+  align-content: start;
+  gap: 1.25rem;
+  padding: 0 var(--workspace-content-gutter) 3rem;
+  overflow-y: auto;
+  background: var(--report-background);
+}
+
+.workspace[data-view="report"] .workspace-header {
+  margin-inline: calc(-1 * var(--workspace-content-gutter));
+  padding-inline: var(--workspace-content-gutter);
+}
+
+.workspace[data-view="report"] .workspace-analysis-panel {
+  align-self: start;
+  padding: 1.5rem;
+  overflow: visible;
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: var(--surface-shadow);
+}
+
+.workspace[data-view="report"] .workspace-map-shell {
+  align-self: stretch;
+  height: auto;
+  border-radius: 1rem;
+}
+
+.workspace[data-view="report"] .workspace-map-controls {
+  display: none;
+}
+
+.satellite-observations-card {
+  padding: 1.25rem;
+  box-shadow: var(--surface-shadow);
+}
+
+@media (min-width: 768px) {
+  .satellite-observations-card {
+    padding: 1.5rem;
+  }
+}
+
+.satellite-history-chart {
+  height: 15rem;
+  min-height: 13rem;
+}
+
+.weather-conditions {
+  box-shadow: var(--surface-shadow);
+}
+
+.weather-chart {
+  height: 22rem;
+  min-height: 18rem;
+}
+
+.weather-conditions + .satellite-observations-card {
+  margin-top: 1.5rem;
+}
+
+.terrain-section + .weather-conditions,
+.terrain-section + .satellite-observations-card,
+.terrain-section + section {
+  margin-top: 1.5rem;
+}
+
+.satellite-observations-card + section,
+.satellite-observations-card + div {
+  margin-top: 1.5rem;
+}
+
+::view-transition-group(analysis-panel),
+::view-transition-group(parcel-map) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-group(root) {
+  z-index: 0;
+}
+
+::view-transition-group(parcel-map) {
+  z-index: 1;
+}
+
+::view-transition-group(analysis-panel) {
+  z-index: 2;
+}
+
+::view-transition-old(analysis-panel),
+::view-transition-new(analysis-panel),
+::view-transition-old(parcel-map),
+::view-transition-new(parcel-map) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 899px) {
+  :root {
+    --workspace-header-height: 4.5rem;
+  }
+
+  .workspace {
+    grid-template-areas: "header" "map" "panel";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--workspace-header-height) minmax(13rem, 38dvh) minmax(0, 1fr);
+  }
+
+  .workspace-header {
+    gap: 0.5rem;
+    padding-inline: 1.25rem;
+  }
+
+  .workspace-progress {
+    display: none;
+  }
+
+  .workspace-analysis-panel {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+    border-right: 0;
+  }
+
+  .workspace[data-view="report"] {
+    --workspace-content-gutter: 1rem;
+    grid-template-areas: "header" "panel" "map" "report";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--workspace-header-height) max-content 9rem max-content;
+    gap: 1rem;
+    padding: 0 var(--workspace-content-gutter) 2rem;
+  }
+
+  .workspace[data-view="report"] .workspace-map-shell {
+    height: 9rem;
+  }
+
+  .workspace-report-body > section {
+    padding: 1.25rem;
+  }
+
+  .terrain-model-lazy,
+  .terrain-model-shell,
+  .terrain-model-placeholder,
+  .terrain-model-fallback {
+    min-height: 22rem;
+  }
+
+  .terrain-context-status {
+    grid-template-columns: 1fr;
+  }
+
+  .terrain-surroundings {
+    grid-template-columns: 1fr;
+  }
+
+  .terrain-context-panel + .terrain-context-panel {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .terrain-source-unavailable {
+    margin-right: 1rem;
+    margin-left: 1rem;
+  }
+
+  .terrain-context-panel {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .terrain-context-panel-heading {
+    align-items: flex-start;
+  }
+
+  .terrain-model-controls {
+    right: 0.65rem;
+    left: 0.65rem;
+  }
+
+  .terrain-model-controls button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace .animate-pulse,
+  .workspace .animate-spin {
+    animation: none;
+  }
+
+  .workspace details::details-content {
+    transition: none;
+  }
+
+  .terrain-loading {
+    animation: none;
+  }
+
+  ::view-transition-group(analysis-panel),
+  ::view-transition-group(parcel-map),
+  ::view-transition-old(analysis-panel),
+  ::view-transition-new(analysis-panel),
+  ::view-transition-old(parcel-map),
+  ::view-transition-new(parcel-map) {
+    animation-duration: 120ms;
+    animation-timing-function: ease-out;
+  }
+}
+
+.terrain-spatial-view {
+  position: relative;
+}
+
+.terrain-hydrology-list button[aria-pressed="true"],
+.terrain-hydrology-list button[data-highlighted="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.terrain-hydrology-list button:hover:not([data-highlighted="true"]) {
+  background: var(--muted);
+}
+
+.terrain-hydrology-list button:focus-visible,
+.hydrology-map-canvas:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.hydrology-object-number {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 650;
+}
+
+.hydrology-map-shell {
+  position: relative;
+  background: var(--muted);
+}
+
+.hydrology-map-canvas {
+  height: clamp(20rem, 50vw, 32rem);
+  width: 100%;
+}
+
+.hydrology-map-status {
+  position: absolute;
+  top: 4.5rem;
+  right: 0.75rem;
+  left: 3.5rem;
+  width: fit-content;
+  max-width: calc(100% - 4.25rem);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.75rem;
+}
+
+.hydrology-map-status button {
+  margin-left: 0.5rem;
+}
+
+.hydrology-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.hydrology-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hydrology-map-legend i {
+  width: 1.25rem;
+  border-top: 3px solid;
+}
+
+.hydrology-parcel-key {
+  color: #2563eb;
+}
+
+.hydrology-water-key {
+  color: #075985;
+}
+
+.hydrology-map-canvas[data-water-hovered] {
+  cursor: pointer;
+}
+
+.retention-map-canvas {
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+}
+
+.retention-map .ol-scale-line {
+  bottom: 0.75rem;
+  left: 1rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--background);
+}
+
+.retention-map .ol-scale-line-inner {
+  border-color: var(--foreground);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 0.625rem;
+}
+
+.retention-map .ol-attribution {
+  right: 0;
+  bottom: 0;
+  max-width: calc(100% - 8rem);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm) 0 0 0;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  text-align: right;
+}
+
+.retention-map .ol-attribution ul {
+  padding: 0;
+  color: inherit;
+  text-shadow: none;
+}
+
+.retention-map .ol-attribution a {
+  color: var(--primary);
 }

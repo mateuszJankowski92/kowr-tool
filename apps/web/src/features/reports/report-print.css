@@ -1,0 +1,303 @@
+.report-print-staging {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  pointer-events: none;
+}
+
+.print-document {
+  box-sizing: border-box;
+  width: min(100%, 210mm);
+  margin: 1.5rem auto;
+  padding: 12mm;
+  background: white;
+  color: #17251b;
+  font-size: 10pt;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  --background: white;
+  --card: white;
+  --foreground: #17251b;
+  --muted-foreground: #45554a;
+}
+
+.print-document :where(p, li, dt, dd, summary, figcaption) {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.print-document h1 {
+  font-size: 20pt;
+}
+
+.print-document h2 {
+  font-size: 14pt;
+}
+
+.print-document h3 {
+  font-size: 11pt;
+}
+
+.print-document :where(h1, h2, h3, h4) {
+  font-weight: 600;
+  break-after: avoid-page;
+}
+
+.print-document header,
+.print-document summary {
+  break-after: avoid-page;
+}
+
+.print-report-heading {
+  padding-bottom: 5mm;
+  border-bottom: 1px solid var(--border);
+}
+
+.print-report-heading dl {
+  margin-top: 3mm;
+}
+
+.print-report-heading dl > div {
+  display: grid;
+  grid-template-columns: 42mm minmax(0, 1fr);
+  gap: 3mm;
+  padding-block: 0.5mm;
+}
+
+.print-report-heading dt {
+  font-weight: 600;
+}
+
+.print-document :where(.rounded-2xl, .terrain-section) {
+  padding: 5mm 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.print-document :where(.overflow-x-auto, .overflow-y-auto) {
+  overflow: visible;
+}
+
+.print-document :where(.print-extended-only, .hidden.print\:block, fieldset, [data-slot="button"]) {
+  display: none;
+}
+
+.print-document :where(button, summary) {
+  pointer-events: none;
+}
+
+.print-document summary {
+  cursor: default;
+  list-style: none;
+}
+
+.print-document summary::-webkit-details-marker {
+  display: none;
+}
+
+.print-document :where(summary svg) {
+  display: none;
+}
+
+.print-document details {
+  min-width: 0;
+}
+
+.print-history-comparison > div > details,
+.print-document #retention-locations {
+  break-inside: avoid-page;
+}
+
+.print-document #retention-locations {
+  break-after: avoid-page;
+}
+
+.print-document[data-variant="simple"] .print-assessment-method {
+  display: none;
+}
+
+.print-document[data-variant="simple"] :where(.mt-7, .mt-6, .mt-5, .mt-4, .mt-3) {
+  margin-top: 2mm;
+}
+
+.print-document[data-variant="simple"] .print-actions article {
+  padding-block: 3mm;
+}
+
+.print-document[data-variant="simple"] .print-history-comparison > summary {
+  display: none;
+}
+
+.print-document[data-variant="simple"] #retention-locations {
+  display: none;
+}
+
+.print-document[data-variant="simple"] :where(.print-history, .print-weather) {
+  break-inside: avoid-page;
+}
+
+.print-document .weather-chart {
+  /* biome-ignore lint/complexity/noImportantStyles: Override the screen chart's dynamic inline width for A4. */
+  min-width: 0 !important;
+  width: 100%;
+  height: 65mm;
+}
+
+.print-history-comparison [role="img"] {
+  height: 60mm;
+}
+
+.print-document
+  :where(figure, [role="img"], table tr, .print-report-heading, .print-actions article) {
+  break-inside: avoid-page;
+}
+
+.print-document :where(p, li) {
+  orphans: 3;
+  widows: 3;
+}
+
+.print-document :where(table, canvas, img, svg) {
+  max-width: 100%;
+}
+
+.print-document table {
+  width: 100%;
+  font-size: 9pt;
+}
+
+.print-document thead {
+  display: table-header-group;
+}
+
+.print-document :where(th, td) {
+  overflow-wrap: anywhere;
+}
+
+.print-document .source-facts {
+  display: block;
+}
+
+.print-document .source-facts > div {
+  margin-block: 1mm;
+}
+
+.print-source-summary {
+  margin-top: 5mm;
+  font-size: 8pt;
+}
+
+.print-source-summary :where(p, ul) {
+  margin-top: 2mm;
+}
+
+.print-source-entry {
+  margin-block: 6mm;
+}
+
+.print-parcel-map {
+  margin-block: 3mm;
+}
+
+.print-parcel-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 30 / 13;
+  border: 1px solid var(--border);
+}
+
+.print-parcel-map figcaption {
+  margin-top: 2mm;
+  font-size: 8pt;
+}
+
+.print-map-parcel-halo {
+  fill: none;
+  stroke: white;
+  stroke-width: 5;
+}
+
+.print-map-parcel {
+  fill: #e4ede5;
+  fill-opacity: 0.14;
+  stroke: #234f31;
+  stroke-width: 2;
+}
+
+.print-map-water {
+  fill: none;
+  stroke: #356a94;
+  stroke-width: 2;
+}
+
+.print-map-water[data-polygon] {
+  fill: #d7e8f4;
+  fill-opacity: 0.75;
+}
+
+.print-map-connector {
+  stroke: #356a94;
+  stroke-width: 1;
+}
+
+.print-map-marker {
+  fill: white;
+  stroke: #17251b;
+}
+
+.print-map-number {
+  fill: #17251b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+
+  @bottom-right {
+    content: counter(page);
+    font: 8pt sans-serif;
+  }
+}
+
+@media print {
+  body.has-print-report {
+    height: auto;
+    overflow: visible;
+    background: white;
+  }
+
+  body.has-print-report > :not(.report-print-staging) {
+    display: none;
+  }
+
+  .report-print-staging {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: white;
+  }
+
+  .print-document {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print-document[data-variant="extended"] .print-chapter {
+    break-before: page;
+  }
+
+  .print-document a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    overflow-wrap: anywhere;
+  }
+}
