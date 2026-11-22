@@ -385,6 +385,8 @@ object highlights it and fits it together with the parcel. Hovering either repre
 its counterpart; keyboard focus on list rows does the same, without refitting the view. Long features are displayed within the
 local search bounds. The API includes water geometry as WGS84 GeoJSON. Water geometry remains
 available independently of NMT and aerial imagery; imagery failures are reported with a retry.
+The 3D visibility observer also attaches when the model container appears after data recovery.
+Selecting **Teren 3D** or **Wczytaj widok 3D** starts the model without waiting for scrolling.
 
 ## Struktura
 
