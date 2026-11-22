@@ -2,19 +2,20 @@
   position: absolute;
   left: -10000px;
   top: 0;
-  width: 210mm;
+  /* Match the A4 content box before printing so canvas charts keep their proportions. */
+  width: 186mm;
   pointer-events: none;
 }
 
 .print-document {
   box-sizing: border-box;
-  width: min(100%, 210mm);
-  margin: 1.5rem auto;
-  padding: 12mm;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   background: white;
   color: #17251b;
   font-size: 10pt;
-  line-height: 1.45;
+  line-height: 1.4;
   overflow-wrap: anywhere;
   --background: white;
   --card: white;
@@ -27,11 +28,13 @@
   line-height: inherit;
 }
 
-.print-document h1 {
-  font-size: 20pt;
+.print-document .print-report-heading h1 {
+  color: var(--primary);
+  font-size: 24pt;
+  letter-spacing: -0.025em;
 }
 
-.print-document h2 {
+.print-document :where(h1, h2) {
   font-size: 14pt;
 }
 
@@ -50,7 +53,8 @@
 }
 
 .print-report-heading {
-  padding-bottom: 5mm;
+  padding-block: 4mm;
+  border-top: 2pt solid var(--primary);
   border-bottom: 1px solid var(--border);
 }
 
@@ -60,7 +64,7 @@
 
 .print-report-heading dl > div {
   display: grid;
-  grid-template-columns: 42mm minmax(0, 1fr);
+  grid-template-columns: 46mm minmax(0, 1fr);
   gap: 3mm;
   padding-block: 0.5mm;
 }
@@ -75,8 +79,26 @@
   box-shadow: none;
 }
 
-.print-document :where(.overflow-x-auto, .overflow-y-auto) {
+.print-document :where(.overflow-auto, .overflow-hidden, .overflow-x-auto, .overflow-y-auto) {
   overflow: visible;
+  max-height: none;
+}
+
+.print-document .sticky {
+  position: static;
+}
+
+.print-document :where(.print-chapter, .print-source-summary) {
+  margin-top: 5mm;
+}
+
+.print-document :where(.mt-7, .mt-6, .mt-5, .mt-4) {
+  margin-top: 3mm;
+}
+
+.print-document summary {
+  min-height: 0;
+  padding-block: 2mm;
 }
 
 .print-document :where(.print-extended-only, .hidden.print\:block, fieldset, [data-slot="button"]) {
@@ -121,10 +143,6 @@
   margin-top: 2mm;
 }
 
-.print-document[data-variant="simple"] .print-actions article {
-  padding-block: 3mm;
-}
-
 .print-document[data-variant="simple"] .print-history-comparison > summary {
   display: none;
 }
@@ -133,7 +151,21 @@
   display: none;
 }
 
-.print-document[data-variant="simple"] :where(.print-history, .print-weather) {
+.print-document .print-actions article {
+  /* A grid item containing a long explanation cannot fragment reliably in Chromium. */
+  display: block;
+  padding-block: 3mm;
+}
+
+.print-document .print-actions article > span {
+  display: none;
+}
+
+.print-document .print-actions :where(article h3) + div {
+  break-after: avoid-page;
+}
+
+.print-document .print-weather .grid {
   break-inside: avoid-page;
 }
 
@@ -142,14 +174,14 @@
   min-width: 0 !important;
   width: 100%;
   height: 65mm;
+  min-height: 0;
 }
 
 .print-history-comparison [role="img"] {
   height: 60mm;
 }
 
-.print-document
-  :where(figure, [role="img"], table tr, .print-report-heading, .print-actions article) {
+.print-document :where(figure, [role="img"], table tr, .print-report-heading) {
   break-inside: avoid-page;
 }
 
@@ -164,6 +196,7 @@
 
 .print-document table {
   width: 100%;
+  border-collapse: collapse;
   font-size: 9pt;
 }
 
@@ -172,7 +205,17 @@
 }
 
 .print-document :where(th, td) {
+  padding: 2mm;
   overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+}
+
+.print-document th {
+  font-weight: 600;
+}
+
+.print-document :where(td, dd) {
+  font-variant-numeric: tabular-nums;
 }
 
 .print-document .source-facts {
@@ -181,11 +224,13 @@
 
 .print-document .source-facts > div {
   margin-block: 1mm;
+  padding-block: 2mm;
+  break-inside: avoid-page;
 }
 
 .print-source-summary {
   margin-top: 5mm;
-  font-size: 8pt;
+  font-size: 8.5pt;
 }
 
 .print-source-summary :where(p, ul) {
@@ -277,7 +322,8 @@
   .report-print-staging {
     position: static;
     display: block;
-    width: auto;
+    width: 186mm;
+    max-width: 100%;
     height: auto;
     overflow: visible;
     background: white;
@@ -289,10 +335,6 @@
     padding: 0;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-  }
-
-  .print-document[data-variant="extended"] .print-chapter {
-    break-before: page;
   }
 
   .print-document a[href^="http"]::after {

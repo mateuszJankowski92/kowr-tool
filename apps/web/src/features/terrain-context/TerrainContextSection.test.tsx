@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getTerrainContext } from "../../api/terrain-context";
 import { DataSourceDrawerProvider } from "../reports/DataSourceDrawer";
+import { ReportPrintContext, type ReportPrintVariant } from "../reports/report-print-context";
 import { TerrainContextSection } from "./TerrainContextSection";
 
 vi.mock("../../api/terrain-context", () => ({
@@ -12,6 +13,12 @@ vi.mock("../../api/terrain-context", () => ({
 }));
 vi.mock("./TerrainModel", () => ({
   TerrainModel: () => <div>Model terenu 3D</div>,
+}));
+
+vi.mock("../reports/PrintParcelMap", () => ({
+  PrintParcelMap: ({ hydrology }: { hydrology?: { objects: { id: string }[] } | null }) => (
+    <div data-testid="print-water-map" data-water-order={hydrology?.objects.map(({ id }) => id)} />
+  ),
 }));
 
 vi.mock("./HydrologyMap", () => ({
@@ -182,12 +189,17 @@ function renderSection(
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   }),
+  printVariant?: ReportPrintVariant,
 ) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <DataSourceDrawerProvider>
-        <TerrainContextSection parcel={parcel} />
-      </DataSourceDrawerProvider>
+      <ReportPrintContext.Provider
+        value={printVariant ? { variant: printVariant, sourceContainer: null } : null}
+      >
+        <DataSourceDrawerProvider>
+          <TerrainContextSection parcel={parcel} />
+        </DataSourceDrawerProvider>
+      </ReportPrintContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -524,5 +536,110 @@ describe("TerrainContextSection", () => {
     expect(await screen.findByText(/Brakuje próbek do wyznaczenia/)).not.toBeNull();
     expect(screen.getAllByText("brak danych")).not.toHaveLength(0);
     expect(screen.queryByText("teren płaski")).toBeNull();
+  });
+});
+
+describe("simple report water surroundings", () => {
+  it("prints the four nearest water objects even when elevation is unavailable", async () => {
+    const hydrology = terrain.surroundings.hydrology;
+    vi.mocked(getTerrainContext).mockResolvedValue({
+      ...terrain,
+      status: "partial",
+      terrain: { status: "unavailable", reason: "provider-error", message: "Unavailable" },
+      surroundings: {
+        ...terrain.surroundings,
+        hydrology: {
+          ...hydrology,
+          objectCount: 6,
+          objects: [
+            ...hydrology.objects,
+            ...hydrology.objects.slice(1, 2).flatMap((object) =>
+              Array.from({ length: 4 }, (_, index) => ({
+                ...object,
+                id: `way/${index + 20}`,
+                name: `Obiekt ${index + 3}`,
+              })),
+            ),
+          ],
+        },
+      },
+    });
+    renderSection(undefined, "simple");
+
+    expect(await screen.findByRole("heading", { name: "Woda wokół działki" })).not.toBeNull();
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(5);
+    expect(within(table).getByText("Struga · Strumień lub mały ciek")).not.toBeNull();
+    expect(within(table).getByText("25 m")).not.toBeNull();
+    expect(table.textContent).toContain("Obiekt 4");
+    expect(table.textContent).not.toContain("Obiekt 5");
+    expect(screen.getByTestId("print-water-map")).not.toBeNull();
+    expect(screen.getByText(/Stan danych:/).textContent).toContain("ODbL");
+    expect(screen.getByText(/Także dla dat historycznych/)).not.toBeNull();
+    expect(screen.queryByText("Model wysokościowy jest niedostępny")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Użytkowanie działki" })).toBeNull();
+  });
+
+  it("distinguishes a water feature crossing the parcel from an adjacent one", async () => {
+    vi.mocked(getTerrainContext).mockResolvedValue({
+      ...terrain,
+      surroundings: {
+        ...terrain.surroundings,
+        hydrology: {
+          ...terrain.surroundings.hydrology,
+          intersectsParcel: true,
+          nearestDistanceMeters: 0,
+          objects: terrain.surroundings.hydrology.objects.slice(0, 1).map((object) => ({
+            ...object,
+            relation: "intersects-parcel",
+            distanceMeters: 0,
+          })),
+          objectCount: 1,
+        },
+      },
+    });
+    renderSection(undefined, "simple");
+
+    expect(
+      await screen.findByText(/Co najmniej jeden oznaczony obiekt wodny przecina działkę/),
+    ).not.toBeNull();
+    expect(within(screen.getByRole("table")).getByText("na działce")).not.toBeNull();
+  });
+
+  it("explains an empty source without claiming that there is no water", async () => {
+    vi.mocked(getTerrainContext).mockResolvedValue({
+      ...terrain,
+      surroundings: {
+        ...terrain.surroundings,
+        hydrology: {
+          ...terrain.surroundings.hydrology,
+          objectCount: 0,
+          objects: [],
+          nearestDistanceMeters: null,
+        },
+      },
+    });
+    renderSection(undefined, "simple");
+
+    expect(await screen.findByText(/nie znaleziono oznaczonych obiektów wodnych/)).not.toBeNull();
+    expect(screen.getByText(/Brak oznaczeń w źródle nie potwierdza braku wody/)).not.toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByTestId("print-water-map")).not.toBeNull();
+  });
+
+  it("prints hydrology unavailability separately from an empty result", async () => {
+    vi.mocked(getTerrainContext).mockResolvedValue({
+      ...terrain,
+      status: "partial",
+      surroundings: {
+        ...terrain.surroundings,
+        hydrology: { status: "unavailable", reason: "provider-error", message: "Unavailable" },
+      },
+    });
+    renderSection(undefined, "simple");
+
+    expect(await screen.findByText(/Nie udało się pobrać warstwy obiektów wodnych/)).not.toBeNull();
+    expect(screen.queryByTestId("print-water-map")).toBeNull();
+    expect(screen.queryByText(/nie znaleziono oznaczonych obiektów wodnych/)).toBeNull();
   });
 });

@@ -282,11 +282,7 @@ function HydrologyAvailableContext({
   onSelect: (id: string) => void;
 }) {
   const nearest = context.objects[0];
-  const lead = context.intersectsParcel
-    ? "Co najmniej jeden oznaczony obiekt wodny przecina działkę."
-    : context.nearestDistanceMeters === null
-      ? `W promieniu ${formatDistance(context.searchRadiusMeters)} nie znaleziono oznaczonych obiektów wodnych.`
-      : `Najbliższy oznaczony obiekt wodny leży około ${formatDistance(context.nearestDistanceMeters)} od granicy działki.`;
+  const lead = describeHydrology(context);
 
   return (
     <section aria-labelledby="hydrology-context-title" className="terrain-context-panel">
@@ -341,6 +337,83 @@ function HydrologyAvailableContext({
           obiektów, w kolejności od najbliższego.
         </p>
       )}
+    </section>
+  );
+}
+
+function describeHydrology(context: HydrologyAvailable): string {
+  return context.intersectsParcel
+    ? "Co najmniej jeden oznaczony obiekt wodny przecina działkę."
+    : context.nearestDistanceMeters === null
+      ? `W promieniu ${formatDistance(context.searchRadiusMeters)} nie znaleziono oznaczonych obiektów wodnych.`
+      : `Najbliższy oznaczony obiekt wodny leży około ${formatDistance(context.nearestDistanceMeters)} od granicy działki.`;
+}
+
+function PrintHydrologySection({
+  parcel,
+  hydrology,
+}: {
+  parcel: ParcelResponse;
+  hydrology: TerrainContextResponse["surroundings"]["hydrology"] | null;
+}) {
+  return (
+    <section aria-labelledby="print-hydrology-title">
+      <h2 id="print-hydrology-title">Woda wokół działki</h2>
+      {hydrology?.status === "available" ? (
+        <>
+          <p>{describeHydrology(hydrology)}</p>
+          <PrintParcelMap parcel={parcel} hydrology={hydrology} />
+          {hydrology.objects.length > 0 && (
+            <table>
+              <caption className="text-left">
+                Najbliższe obiekty wodne · promień {formatDistance(hydrology.searchRadiusMeters)}
+                {" · "}
+                pokazano {Math.min(4, hydrology.objects.length)} z {hydrology.objectCount}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nr na mapie</th>
+                  <th scope="col">Obiekt</th>
+                  <th scope="col">Od granicy działki</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hydrology.objects.slice(0, 4).map((object, index) => (
+                  <tr key={object.id}>
+                    <td>{index + 1}</td>
+                    <td>
+                      {object.name ? `${object.name} · ` : ""}
+                      {HYDROLOGY_LABELS[object.kind]}
+                    </td>
+                    <td>
+                      {object.relation === "intersects-parcel"
+                        ? "na działce"
+                        : formatDistance(object.distanceMeters)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="mt-3">
+            Źródło: © autorzy OpenStreetMap · ODbL. Stan danych:{" "}
+            {formatTimestamp(hydrology.source.snapshotAt)}; pobrano{" "}
+            {formatTimestamp(hydrology.source.retrievedAt)}.
+          </p>
+          {hydrology.limitations.map((limitation) => (
+            <p key={limitation}>{limitation}</p>
+          ))}
+        </>
+      ) : (
+        <p>
+          Nie udało się pobrać warstwy obiektów wodnych. Nie oznacza to, że w pobliżu nie ma cieków
+          ani zbiorników.
+        </p>
+      )}
+      <p className="mt-3">
+        Brak oznaczeń w źródle nie potwierdza braku wody w terenie. Także dla dat historycznych
+        pokazujemy bieżący stan mapy. Obiekty i możliwości retencji wymagają weryfikacji terenowej.
+      </p>
     </section>
   );
 }
@@ -734,6 +807,7 @@ function TerrainResult({
 }
 
 export function TerrainContextSection({ parcel }: { parcel: ParcelResponse }) {
+  const print = useReportPrint();
   const query = useQuery({
     queryKey: ["terrain-context", parcel.identifier],
     queryFn: ({ signal }) => getTerrainContext(parcel.identifier, signal),
@@ -742,6 +816,14 @@ export function TerrainContextSection({ parcel }: { parcel: ParcelResponse }) {
   });
 
   if (query.isPending) return <TerrainLoading />;
+  if (print?.variant === "simple") {
+    return (
+      <PrintHydrologySection
+        parcel={parcel}
+        hydrology={query.data?.surroundings.hydrology ?? null}
+      />
+    );
+  }
   if (query.isError && !query.data) {
     return <TerrainError isRetrying={query.isFetching} onRetry={() => void query.refetch()} />;
   }

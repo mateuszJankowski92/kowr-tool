@@ -863,10 +863,20 @@ scenario comparisons, annual details, terrain/water diagrams, satellite and soil
 and full methodology and data tables. Content may extend the simple version beyond two pages;
 readability and preservation of uncertainty take precedence over a fixed page count.
 
+Owner addition: the simple report also includes nearby water, with the parcel orthophoto,
+the same four nearest numbered water objects, distances from the parcel boundary, source dates
+and limitations. An empty map source and an unavailable provider remain distinct. This section
+uses existing terrain-context data and does not require available elevation or land-use results.
+
 Choosing a variant prepares its required data and charts in the background and opens the native
 print preview directly, without an in-app preview step. Failed independent sources remain
 explicit, and preparation can be cancelled. The print document uses A4 layout, logical chapter
-breaks and non-splitting charts and short action blocks, while long sections flow across pages.
+breaks and non-splitting charts and table rows, while long sections flow across pages.
+Owner layout correction: sections and the methodology appendix flow without forced page breaks.
+Keep charts, weather summary cards and table rows together, and let long recommendations split.
+Use a consistent A4 content width while preparing charts,
+and expand screen scroll containers so all table rows remain available in print. Print typography,
+spacing and table headings are adapted for paper without removing results or qualifications.
 It reuses application DTOs, calculations and presentation rules; it does not introduce new
 analysis methods, providers or an additional PDF dependency. This resolves the prototype's
 report-persistence format choice, not scientific validation or the browser compatibility question.

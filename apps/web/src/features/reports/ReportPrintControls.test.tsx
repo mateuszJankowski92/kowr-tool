@@ -211,6 +211,10 @@ describe("ReportPrintControls", () => {
     expect(document.querySelector('[data-testid="historical-chart"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="weather-chart"]')).not.toBeNull();
     expect(getSatelliteObservationSummary).not.toHaveBeenCalled();
+    expect(document.querySelector(".print-document")?.textContent).toContain("Woda wokół działki");
+    expect(document.querySelector(".print-document")?.textContent).toContain(
+      "Nie udało się pobrać warstwy obiektów wodnych",
+    );
     expect(document.querySelector(".print-source-summary")?.textContent).toContain(
       "Źródło danych glebowych jest niedostępne",
     );

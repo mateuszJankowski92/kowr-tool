@@ -320,11 +320,11 @@ function ReportPrintJob({
                 parcel={parcel}
               />
             </div>
+            <div className="print-chapter">
+              <TerrainContextSection parcel={parcel} />
+            </div>
             {variant === "extended" && (
               <>
-                <div className="print-chapter">
-                  <TerrainContextSection parcel={parcel} />
-                </div>
                 <div className="print-chapter">
                   <SatelliteObservationsCard
                     crop={selection.crop}

@@ -147,6 +147,13 @@ describe("SatelliteObservationsCard", () => {
     expect(screen.getByText(/Dla uprawy „Pszenica zwyczajna ozima”/)).not.toBeNull();
     expect(screen.getByTestId("vegetation-chart")).not.toBeNull();
     expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(screen.getByRole("button", { name: "Jak odczytywać wykres NDMI" }));
+    const chartHelp = await screen.findByRole("tooltip");
+    expect(chartHelp.textContent).toContain("wartość 0,5 nie oznacza 50% wilgotności");
+    expect(chartHelp.textContent).toContain("a nie jak pewny jest wynik");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
     fireEvent.click(
       screen.getByRole("button", {
         name: "Pokaż źródło i jakość danych: Obserwacje satelitarne",

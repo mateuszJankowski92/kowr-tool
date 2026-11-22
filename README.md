@@ -1,24 +1,23 @@
 # HydroPlon
 
-Monorepo prototypu wspierającego ocenę sytuacji wodnej działek rolnych. Projekt składa się
-z aplikacji React/Vite, API Fastify oraz bazy PostgreSQL z rozszerzeniem PostGIS.
+Hackathon prototype by **Iteracja7**, helping farmers assess water conditions on Polish cadastral
+parcels and choose retention and agronomic actions backed by environmental data.
 
-## Dokumentacja produktu
+## Features
 
-- [Wymagania projektu](docs/product-requirements.md) — zakres konkursowy, wymagania,
-  kryteria akceptacji, materiały zgłoszenia i otwarte pytania.
-- [Instrukcje dla agentów](AGENTS.md) — zasady architektury, implementacji i walidacji zmian.
+- Select a parcel on the map or by cadastral identifier; receive a crop suggestion from ARiMR declarations.
+- Analyse a crop for a selected date or period, including the previous ten years.
+- Explore water-balance scenarios, weather, satellite observations, soil profiles and 3D terrain.
+- Get recommendations with evidence, source dates and explicit limitations.
+- Print a simple or extended A4 report, or save it as PDF through the browser.
 
-## Wymagania
+Data comes from GUGiK, ARiMR, SoilGrids, Open-Meteo/NASA POWER, Copernicus and OpenStreetMap.
+Model results are estimates, not field measurements; missing data remains explicitly marked.
 
-- Node.js 22+
-- pnpm 10+
-- Docker z Docker Compose
+## Run locally
 
-The pinned PostGIS image is published for `linux/amd64`. Compose selects that platform explicitly;
-Docker Desktop on Apple Silicon must support amd64 emulation.
-
-## Pierwsze uruchomienie
+Requires **Node.js 22+**, **pnpm 10+** and **Docker Compose**. The PostGIS image uses `linux/amd64`;
+Apple Silicon requires Docker's amd64 emulation.
 
 ```bash
 corepack enable
@@ -29,13 +28,14 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Po uruchomieniu:
+- Application: http://localhost:5173
+- API and OpenAPI documentation: http://localhost:3000/docs
 
-- aplikacja: http://localhost:5173
-- API: http://localhost:3000
-- dokumentacja OpenAPI: http://localhost:3000/docs
-- health check: http://localhost:3000/api/health
+For satellite statistics and imagery, set `CDSE_CLIENT_ID` and `CDSE_CLIENT_SECRET` in your local
+`.env`, then restart the API. Without them, public observation dates remain available, but satellite
+results are limited. Provider secrets stay in the API.
 
+<<<<<<< Updated upstream
 ## Wdrożenie produkcyjne
 
 Wdrożenie `https://hydroplon.aixir.pl` używa PostgreSQL/PostGIS w Dockerze, API zarządzanego przez
@@ -280,188 +280,32 @@ Doradztwa Rolniczego; they are assumptions, not confirmed sowing dates on the pa
 form asks for the crop and analysis date or range, and uses this automatic start throughout
 the report. It has no additional planting settings or URL override. The report discloses the
 assumed start and its limitations. Direct API clients can still supply explicit phenology scenarios.
+=======
+## Commands
+>>>>>>> Stashed changes
 
 ```bash
-curl -X POST http://localhost:3000/api/analyses \
-  -H 'content-type: application/json' \
-  -d '{
-    "parcel": { "type": "identifier", "identifier": "141201_1.0001.6509" },
-    "crop": "pszenica-zwyczajna-jara",
-    "analysisDate": "2025-06-30",
-    "wettingTiming": "unknown",
-    "includeSatellite": true
-  }'
+pnpm dev          # Run frontend and API in watch mode
+pnpm check        # Lint, typecheck, tests and production build
+pnpm db:up        # Start PostGIS
+pnpm db:migrate   # Apply database migrations
+pnpm db:down      # Stop Docker services
+pnpm crops:update # Refresh the ARiMR crop catalogue
 ```
 
-Odpowiedź rozdziela kompletność źródeł od klasyfikacji bilansu i zawiera konfiguracje scenariuszy,
-zakres `Ks`, epizody modelowanego ograniczenia ET, kody przyczyn, ograniczenia, źródła oraz czasy.
-Pole `assessmentLevel` rozróżnia pełny FAO-56, wynik zależny od założeń, ocenę ograniczoną, sam
-kontekst meteorologiczny i brak możliwości oceny. Częściowo ukończone rodziny scenariuszy pozostają
-widoczne i nie są przedstawiane jako pełny wynik.
-Open-Meteo i NASA POWER są alternatywami dla całego szeregu — nie są sklejane dzień po dniu.
-Przy częściowym szeregu API wskazuje konkretne brakujące daty i pola (`precipitation` lub `et0`)
-oraz ostatni dzień kompletnego, ciągłego szeregu, który interfejs może zaproponować użytkownikowi.
-Nieobsługiwana uprawa, brak referencyjnych długości faz lub data przed modelowanym sezonem daje
-ograniczony kontekst jednego dnia i `insufficient-data`. Po zakończeniu sezonu raport pokazuje
-bilans zakończonego okresu i odpowiadającą mu historię, z jawnym zastrzeżeniem, że nie jest to
-pomiar bieżącej wilgotności. Rekomendacje planowania kolejnego sezonu korzystają wtedy z liczby
-dni ograniczenia w całym okresie, nie tylko z wyniku ostatniego dnia. Przedziały wyników są rozrzutem
-scenariuszy, a nie przedziałem ufności; ograniczenie ET nie jest prognozą straty plonu.
-
-The crop engine contains 61 reference profiles plus nine project estimation profiles and 678
-explicit ARiMR mappings, including dry-seed
-faba bean (`bobik`), fresh broad bean, pulses, cereals, vegetables, orchards and berries. Parameters
-come from FAO-56 (1998), with twelve added profiles using the revised 2025 coefficient/root/depletion
-tables. The additional calendar starts are prototype assumptions;
-related-crop phase proxies and established-perennial assumptions are disclosed. This is not local
-phenology calibration. When species parameters are absent, an explicit crop-group estimate supplies
-canopy, root-zone and production-calendar assumptions, including forage, seed and cover-crop
-variants. Existing reviewed mappings take precedence. Both assessment responses require
-`crop.modelKind`; approximate models are identified beside current and historical results, with
-parameter sources and assumptions in their details and printed reports. Weather/soil gaps remain
-explicit and can still prevent calculation. The sole environmental-only catalog entry is
-`pieczarka`: mushrooms have no plant root zone and outdoor FAO-56 does not apply. See
-[methodology](docs/water-situation-methodology.md#crop-profiles) and the
-[679-entry catalog review](docs/crop-catalog-review.md).
-
-`GET /api/crops` exposes model availability from the calculation engine. The picker labels every
-entry as a species reference, an approximate model (borrowed parameters/use or phase calendar),
-or environmental context only. Metadata loading/failure is distinct from lack of a crop model.
-The latest extension covers spring/winter rye, winter barley, spring rape, common buckwheat,
-strawberry and spring/winter triticale proxies; see the review for reference limitations.
-
-### Rekomendacje dla działki
-
-Endpoint `POST /api/recommendations` jest deterministycznym etapem kompozycji wyników, które
-frontend uzyskał już z centralnej oceny, SoilGrids oraz kontekstu terenu. Nie pobiera ponownie
-zewnętrznych danych. Reguły wybierają do czterech działań retencyjnych lub agrotechnicznych i dla
-każdego zachowują priorytet, przesłanki liczbowe, brakujące wejścia oraz wymaganą weryfikację.
-Interfejs współdzieli zapytania TanStack Query z pozostałymi sekcjami raportu.
-
-Okrywa gleby i zachowanie resztek są proponowane tylko przy rozpoznanym użytkowaniu rolniczym;
-FAO opisuje ich rolę w ograniczaniu parowania i zwiększaniu infiltracji. Praktyki konturowe są
-wyłącznie tematem do sprawdzenia przy co najmniej 1° typowego spadku albo 2 m różnicy wysokości;
-to projektowy próg przesiewowy, a nie kryterium techniczne. Bliskość obiektu wodnego do 100 m
-uruchamia zalecenie oględzin, nie przebudowy. Każdy zbiornik, rów, zmiana odpływu lub inne urządzenie
-wodne wymaga rozpoznania terenowego, projektu i sprawdzenia wymogów Wód Polskich. Aplikacja nie
-wyznacza automatycznie lokalizacji urządzeń i nie obiecuje wzrostu plonu ani oszczędności wody.
-
-The recommendation request includes `crop` and `cropPeriod`. Actions distinguish a standing
-annual crop, post-season planning, perennial interrows and perennial ground cover. Unsupported
-profiles keep uncertainty visible. Retention actions include `locations`: actual mapped water
-geometry or valid NMT inspection cells inside the parcel, with source and cell size. The numbered
-locations can be opened on a map below the actions. They identify places to inspect, not confirmed
-water-storage sites. Missing location evidence leaves the result partial.
-
-### Historyczna podatność na niedobory wody
-
-Addytywny endpoint `POST /api/historical-analyses` uruchamia ten sam silnik FAO-56 dla dziesięciu
-sezonów poprzedzających rok analizy. Domyślnie używa tego samego automatycznie przyjętego początku
-sezonu co `POST /api/analyses`; jawna fenologia pozostaje opcjonalnym nadpisaniem dla klientów API.
-
-```bash
-curl -X POST http://localhost:3000/api/historical-analyses \
-  -H 'content-type: application/json' \
-  -d '{
-    "parcel": { "type": "identifier", "identifier": "141211_2.0038.102" },
-    "crop": "pszenica-zwyczajna-jara",
-    "analysisDate": "2025-06-30",
-    "wettingTiming": "unknown"
-  }'
-```
-
-Odpowiedź zachowuje kompletność, źródło i próby dostawców osobno dla każdego roku. Open-Meteo i
-NASA POWER są alternatywami dla całego sezonu; braków nie zastępuje się zerem ani danymi drugiego
-dostawcy. Jeden profil SoilGrids jest używany we wszystkich sezonach. Udziały mają jawny mianownik
-kompletnych lat, a rozrzut scenariuszy nie jest przedziałem ufności. Wynik jest kontrfaktyczną
-symulacją obecnie wybranej uprawy, nie potwierdzeniem historycznej rotacji ani strat na polu.
-Frontend wywołuje endpoint niezależnie od bieżącej oceny i pokazuje wynik bezpośrednio pod sekcją
-„Sytuacja wodna Twojej działki”. Widok rozdziela sezony ze zgodnym wskazaniem ograniczenia,
-sezony bez zgodnego wskazania, wyniki zależne od założeń oraz lata niekompletne. Sekcja „Uprawa na
-tle poprzednich lat” pokazuje jeden wykres zakresu dni ograniczenia. Po wybraniu roku podaje zakres
-deficytu ET i najdłuższego epizodu, kompletność oraz wpływ początkowego uwilgotnienia. Skrajnie
-suchy stan początkowy jest testem wrażliwości, nie odtworzeniem historycznej wilgotności; model
-sprawdza także, czy warianty mokrego i suchego początku zbiegają się w trakcie symulacji.
-Scenariusze nie mają wag prawdopodobieństwa, więc zakres nie jest przedziałem ufności, a mediana
-scenariuszy nie wskazuje najbardziej prawdopodobnego roku. Rzeczywisty okres danych, źródła i
-pełne ograniczenia pozostają w rozwijanych szczegółach. Frontend domyślnie korzysta z
-orientacyjnego terminu, a opcjonalną znaną datę użytkownika przesuwa o pełne lata dla okresów
-historycznych.
-
-Raport zawiera także sekcję „Teren, woda i użytkowanie działki”. API pobiera rzeczywiste wysokości z
-GUGiK NMT przez WCS, w układzie EPSG:2180 i odniesieniu wysokościowym PL-EVRF2007-NH. Czysta
-warstwa analityczna oblicza minimum, maksimum, różnicę wysokości, medianę i 90. percentyl spadku
-oraz dominujący kierunek spadku wyłącznie dla komórek leżących w granicy działki. Endpoint
-`GET /api/terrain-contexts?parcelIdentifier=<identyfikator>` zwraca ograniczoną siatkę wysokości,
-geometrię działki, hydrologię w promieniu 1 km, szacowane udziały klas użytkowania powierzchni
-w granicy działki oraz jawne metadane źródeł.
-
-Frontend buduje z tej siatki interaktywną powierzchnię Three.js bez sztucznego zwiększania skali
-pionowej. Teksturę pobiera oddzielnie z GUGiK WMS jako ortofotomapę przez endpoint
-`GET /api/terrain-textures?parcelIdentifier=<identyfikator>`, dzięki czemu jej awaria nie usuwa
-wyników NMT. Model jest ładowany dopiero w pobliżu widoku. Obiekty wodne i poligony użytkowania
-terenu pochodzą z bieżącego zrzutu OpenStreetMap pobieranego przez Overpass API. Odległości są
-liczone od granicy działki, a udziały powierzchni są deterministycznym oszacowaniem z ograniczonej
-siatki próbek. Nieoznaczona część działki pozostaje nierozpoznana; brak obiektu w OpenStreetMap nie
-jest interpretowany jako potwierdzony brak w terenie. Awaria GUGiK albo OpenStreetMap pozostawia
-wyniki drugiego źródła dostępne i daje jawny stan częściowy. Dane OpenStreetMap są udostępniane na
-licencji ODbL i mogą być niekompletne. Dla dat historycznych używany jest bieżący stan mapy, co
-raport pokazuje jako ograniczenie. Data pozyskania konkretnego arkusza NMT i ortofotomapy nie jest
-udostępniana przez użyte odpowiedzi usług, dlatego pozostaje jawnie nieznana.
-
-The NMT adapter retries a transient connection failure, empty response, HTTP 408 or server error
-once within the original 15-second deadline. It does not retry invalid grids, confirmed no-data,
-rate limits or caller cancellation. Complete terrain-context responses remain fresh for 30 minutes;
-partial responses are immediately stale and can be retried from the section without reloading the
-page. Previously fetched results stay visible during a retry and after a refresh request fails.
-An ongoing GUGiK outage still produces an explicit partial result.
-
-The terrain section also offers a **Woda na mapie** view using the existing OpenLayers map stack.
-The Polish view switch sits over the map in place of the former oblique-view and reset controls.
-It shows the four nearest listed water objects as source lines or polygons, with matching numbers
-and the parcel boundary. The view fits these objects automatically; selecting a list row or map
-object highlights it and fits it together with the parcel. Hovering either representation highlights
-its counterpart; keyboard focus on list rows does the same, without refitting the view. Long features are displayed within the
-local search bounds. The API includes water geometry as WGS84 GeoJSON. Water geometry remains
-available independently of NMT and aerial imagery; imagery failures are reported with a retry.
-The 3D visibility observer also attaches when the model container appears after data recovery.
-Selecting **Teren 3D** or **Wczytaj widok 3D** starts the model without waiting for scrolling.
-
-## Struktura
+## Repository
 
 ```text
-apps/api               Fastify, integracje i dostęp do PostGIS
-apps/web               React, Vite i interfejs użytkownika
-packages/contracts     współdzielone kontrakty Zod
-packages/analysis      czyste, deterministyczne obliczenia domenowe
-packages/typescript-config  wspólna konfiguracja TypeScript
-infra/migrations       migracje PostgreSQL/PostGIS
+apps/web             React, Vite, Tailwind CSS and shadcn/ui
+apps/api             Fastify, external integrations and persistence
+packages/contracts   Shared Zod HTTP contracts
+packages/analysis    Deterministic domain calculations
+infra/migrations     PostgreSQL/PostGIS migrations
 ```
 
-## Polecenia
+## Documentation
 
-```bash
-pnpm dev          # frontend i backend w trybie watch
-pnpm check        # lint, typy, testy i build
-pnpm crops:update # odśwież lokalny katalog upraw z publicznej warstwy ARiMR GSA 2025
-pnpm db:up        # uruchom PostGIS
-pnpm db:migrate   # wykonaj migracje
-pnpm db:down      # zatrzymaj usługi Dockera
-```
-
-## Zasady architektury
-
-- Sekrety dostawców danych pozostają wyłącznie w API.
-- Schematy wejścia i odpowiedzi są współdzielone przez `@kowr/contracts`.
-- Obliczenia domenowe trafiają do `@kowr/analysis` i nie wykonują operacji sieciowych.
-- Każde zewnętrzne źródło danych otrzyma osobny adapter w `apps/api/src/integrations`.
-- Brak pojedynczego źródła nie powinien unieważniać całego raportu; wynik może mieć status
-  `partial` i jawnie wymieniać ograniczenia.
-
-## Następny krok
-
-Centralna ocena FAO-56 i historyczna podatność są podłączone jako dwie niezależne sekcje raportu.
-The form uses the API's automatic, disclosed reference crop-season start.
-Brak profilu uprawy lub danych źródłowych daje informację o
-niewystarczających danych, nie awarię pozostałych sekcji. Trwały cache PostGIS dla geometrii i
-wyników zewnętrznych pozostaje do wdrożenia przed zwiększeniem ruchu do usług publicznych.
+- [Product requirements and decisions](docs/product-requirements.md)
+- [Analysis methodology and limitations](docs/water-situation-methodology.md)
+- [Crop model coverage](docs/crop-catalog-review.md)
+- [Architecture and contribution rules](AGENTS.md)

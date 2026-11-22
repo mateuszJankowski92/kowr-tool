@@ -11,15 +11,19 @@ import {
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Info } from "lucide-react";
+import { Tooltip as TooltipPrimitive } from "radix-ui";
 import { Line } from "react-chartjs-2";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import { parseLocalDate } from "../analysis/analysis-date";
 
 ChartJS.register(LinearScale, LineElement, PointElement, Tooltip);
 
 const MAX_CONNECTED_GAP_DAYS = 14;
 const DAY_MS = 86_400_000;
+const NDMI_CHART_GUIDE =
+  "Każdy punkt to użyteczna obserwacja działki. NDMI ma skalę od −1 do 1, bez jednostki: wartość 0,5 nie oznacza 50% wilgotności. Pokrycie danymi mówi, jaką część działki można było przeanalizować, a nie jak pewny jest wynik.";
 const ndmiFormatter = new Intl.NumberFormat("pl-PL", {
   maximumFractionDigits: 3,
   minimumFractionDigits: 2,
@@ -170,10 +174,36 @@ export function VegetationHistoryChart({ fromDate, history, toDate }: Vegetation
       className="mt-5"
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+        <div className="flex items-center gap-1">
           <h3 className="font-semibold" id="vegetation-history-title">
             Wskaźnik uwodnienia roślinności (NDMI)
           </h3>
+          {history.length > 0 && (
+            <TooltipPrimitive.Provider delayDuration={200}>
+              <TooltipPrimitive.Root>
+                <TooltipPrimitive.Trigger asChild>
+                  <Button
+                    aria-label="Jak odczytywać wykres NDMI"
+                    className="size-11 text-muted-foreground print:hidden"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Info aria-hidden="true" className="size-4" />
+                  </Button>
+                </TooltipPrimitive.Trigger>
+                <TooltipPrimitive.Portal>
+                  <TooltipPrimitive.Content
+                    className="z-50 max-w-xs rounded-lg bg-popover p-3 text-sm leading-6 text-popover-foreground shadow-md ring-1 ring-foreground/10"
+                    collisionPadding={12}
+                    sideOffset={6}
+                  >
+                    {NDMI_CHART_GUIDE}
+                  </TooltipPrimitive.Content>
+                </TooltipPrimitive.Portal>
+              </TooltipPrimitive.Root>
+            </TooltipPrimitive.Provider>
+          )}
         </div>
         <Badge className="tabular-nums" variant="neutral">
           {formatDate(fromDate)} – {formatDate(toDate)}
@@ -224,12 +254,10 @@ export function VegetationHistoryChart({ fromDate, history, toDate }: Vegetation
             </p>
           )}
           <figcaption
-            className="mt-2 max-w-prose text-xs leading-5 text-muted-foreground"
+            className="sr-only print:not-sr-only print:mt-2 print:text-xs"
             id="vegetation-history-scale"
           >
-            Każdy punkt to użyteczna obserwacja działki. NDMI ma skalę od −1 do 1, bez jednostki:
-            wartość 0,5 nie oznacza 50% wilgotności. Pokrycie danymi mówi, jaką część działki można
-            było przeanalizować, a nie jak pewny jest wynik.
+            {NDMI_CHART_GUIDE}
           </figcaption>
         </>
       )}
