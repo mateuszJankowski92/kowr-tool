@@ -1,0 +1,40 @@
+name: hydroplon
+
+services:
+  database:
+    image: postgis/postgis:17-3.5
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kowr
+      POSTGRES_USER: kowr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kowr -d kowr"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  migrate:
+    image: hydroplon-api:latest
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      MIGRATIONS_DIRECTORY: /app/infra/migrations
+      WEB_ORIGIN: https://hydroplon.aixir.pl
+    command: ["node", "dist/db/migrate.js"]
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

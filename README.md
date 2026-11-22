@@ -36,6 +36,45 @@ Po uruchomieniu:
 - dokumentacja OpenAPI: http://localhost:3000/docs
 - health check: http://localhost:3000/api/health
 
+## Wdrożenie produkcyjne
+
+Wdrożenie `https://hydroplon.aixir.pl` używa PostgreSQL/PostGIS w Dockerze, API zarządzanego przez
+PM2 oraz hostowego Nginx do serwowania frontendu i reverse proxy. Baza jest dostępna wyłącznie na
+`127.0.0.1:5433`, a API na `127.0.0.1:3100`.
+
+Wymagania dla hosta:
+
+- rekord DNS `A` `hydroplon.aixir.pl` wskazujący na publiczny adres IPv4 serwera;
+- dostępne z internetu porty TCP 80 i 443;
+- Docker z wtyczką Docker Compose, PM2, Nginx i Certbot.
+
+Na serwerze utwórz konfigurację poza kontrolą wersji i uruchom stos:
+
+```bash
+cp .env.production.example .env.production
+# Ustaw zgodne hasło w POSTGRES_PASSWORD, DATABASE_URL i PM2_DATABASE_URL.
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+```
+
+Compose uruchamia bazę i idempotentne migracje. Zbudowane API wraz z zależnościami należy umieścić
+w `/opt/hydroplon/api`, migracje w `/opt/hydroplon/infra/migrations`, a wynik builda frontendu w
+`/var/www/hydroplon`. Konfiguracje procesu i virtual hosta znajdują się odpowiednio w
+`deploy/ecosystem.config.cjs` oraz `deploy/nginx.hydroplon.aixir.pl.conf`. Sekrety z
+`.env.production` należy przekazać do środowiska procesu przy `pm2 start` i zachować przez
+`pm2 save`; nie wpisywać ich do pliku ecosystem.
+
+Po włączeniu konfiguracji Nginx certyfikat można wystawić poleceniem
+`certbot --nginx -d hydroplon.aixir.pl`. Stan wdrożenia sprawdzają:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.production.yml ps
+pm2 show hydroplon-api
+curl --fail https://hydroplon.aixir.pl/api/health
+```
+
+Dane bazy są zachowywane w nazwanym wolumenie. Przed operacją usuwającą wolumeny należy wykonać
+kopię bazy; zwykłe `docker compose down` ich nie usuwa.
+
 Frontend zawiera interaktywną mapę Polski opartą na publicznych usługach GUGiK. Udostępnia
 podkład BDOO/BDOT10k, ortofotomapę standardową oraz wybór działki przez kliknięcie na mapie
 lub podanie pełnego identyfikatora ewidencyjnego. API pobiera granicę i podstawowe dane

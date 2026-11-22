@@ -1,11 +1,12 @@
 import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import { env } from "../config/env.js";
 
-const migrationsDirectory = fileURLToPath(
-  new URL("../../../../infra/migrations/", import.meta.url),
-);
+const migrationsDirectory = env.MIGRATIONS_DIRECTORY
+  ? resolve(env.MIGRATIONS_DIRECTORY)
+  : fileURLToPath(new URL("../../../../infra/migrations/", import.meta.url));
 
 const pool = new Pool({ connectionString: env.DATABASE_URL });
 const client = await pool.connect();

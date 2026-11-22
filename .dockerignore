@@ -1,8 +1,9 @@
-node_modules
-**/node_modules
-dist
-**/dist
 .git
+.github
 .env
+.env.*
+!.env.example
+**/dist
+**/node_modules
 coverage
-
+*.log

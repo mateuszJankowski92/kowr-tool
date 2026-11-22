@@ -10,6 +10,7 @@ const EnvironmentSchema = z.object({
   API_HOST: z.string().default("0.0.0.0"),
   API_PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url().default("postgresql://kowr:kowr@localhost:5432/kowr"),
+  MIGRATIONS_DIRECTORY: z.string().min(1).optional(),
   WEB_ORIGIN: z.url().default("http://localhost:5173"),
   CDSE_CLIENT_ID: z.string().optional(),
   CDSE_CLIENT_SECRET: z.string().optional(),
