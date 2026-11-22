@@ -305,6 +305,7 @@ infra/migrations     PostgreSQL/PostGIS migrations
 
 ## Documentation
 
+- [Sample parcel report (PDF)](docs/examples/hydroplon-raport-prosty.pdf)
 - [Product requirements and decisions](docs/product-requirements.md)
 - [Analysis methodology and limitations](docs/water-situation-methodology.md)
 - [Crop model coverage](docs/crop-catalog-review.md)
