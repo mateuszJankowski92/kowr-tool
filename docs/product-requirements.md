@@ -675,6 +675,13 @@ These are prototype choices [P] made while repairing missing results for parcel
   keyed by exact bounds and grid resolution (at most 128 samples), preserving retrieval timestamps.
   Retrying a missing map source therefore reuses an already successful terrain sample instead of
   losing it to a separate transient outage. Failed requests are not cached.
+- **2026-11-22 — owner-requested terrain recovery:** the existing GUGiK NMT adapter retries a
+  transient connection failure, empty response, HTTP 408 or server error once within its original
+  15-second deadline. Invalid grids, confirmed no-data, rate limits and cancellation are not retried.
+  The frontend keeps only complete terrain-context responses fresh for 30 minutes; partial responses
+  are immediately stale and offer an explicit retry, retaining the last result during refresh and
+  after an HTTP failure. Polish messages distinguish a retrieval failure from missing usable samples.
+  This changes failure recovery, not the data provider, scientific method or availability guarantee. [P]
 - Following the user's explicit request to extend FAO-56 beyond the pilot crops, the engine now
   initially received 48 reference profiles and 132 explicit catalog mappings, including dry-seed faba bean
   (`bobik`). FAO Tables 11, 12 and 22 supply crop parameters; additional starts and documented

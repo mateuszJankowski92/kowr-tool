@@ -164,23 +164,34 @@ export function createGugikTerrainProvider(
       parameters.append("SUBSET", `y(${bounds.west},${bounds.east})`);
       parameters.set("SCALESIZE", `x(${rows}),y(${columns})`);
 
-      try {
-        const response = await fetchImplementation(`${NMT_WCS_URL}?${parameters.toString()}`, {
-          headers: { Accept: "image/x-aaigrid" },
-          signal: combined.signal,
-        });
-        if (!response.ok) throw new TerrainProviderError("REQUEST_FAILED");
-        return normalizeGrid(parseArcGrid(await response.text()), now().toISOString());
-      } catch (error) {
-        const providerError =
-          error instanceof TerrainProviderError
-            ? error
-            : new TerrainProviderError(
-                combined.timeoutSignal.aborted ? "TIMEOUT" : "REQUEST_FAILED",
-                error,
-              );
-        logFailure(options.logger, "GUGiK NMT WCS", startedAt, providerError);
-        throw providerError;
+      // Both attempts share the original deadline so recovery cannot double report latency.
+      for (let attempt = 0; ; attempt += 1) {
+        let retryable = true;
+        try {
+          combined.signal.throwIfAborted();
+          const response = await fetchImplementation(`${NMT_WCS_URL}?${parameters.toString()}`, {
+            headers: { Accept: "image/x-aaigrid" },
+            signal: combined.signal,
+          });
+          if (!response.ok) {
+            retryable = response.status === 408 || response.status >= 500;
+            throw new TerrainProviderError("REQUEST_FAILED");
+          }
+          const payload = await response.text();
+          if (!payload.trim()) throw new TerrainProviderError("REQUEST_FAILED");
+          retryable = false;
+          return normalizeGrid(parseArcGrid(payload), now().toISOString());
+        } catch (error) {
+          signal?.throwIfAborted();
+          const providerError = combined.timeoutSignal.aborted
+            ? new TerrainProviderError("TIMEOUT", error)
+            : error instanceof TerrainProviderError
+              ? error
+              : new TerrainProviderError("REQUEST_FAILED", error);
+          logFailure(options.logger, "GUGiK NMT WCS", startedAt, providerError);
+          if (attempt === 0 && retryable && !combined.signal.aborted) continue;
+          throw providerError;
+        }
       }
     },
 

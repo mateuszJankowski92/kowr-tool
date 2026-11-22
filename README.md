@@ -370,6 +370,13 @@ licencji ODbL i mogą być niekompletne. Dla dat historycznych używany jest bie
 raport pokazuje jako ograniczenie. Data pozyskania konkretnego arkusza NMT i ortofotomapy nie jest
 udostępniana przez użyte odpowiedzi usług, dlatego pozostaje jawnie nieznana.
 
+The NMT adapter retries a transient connection failure, empty response, HTTP 408 or server error
+once within the original 15-second deadline. It does not retry invalid grids, confirmed no-data,
+rate limits or caller cancellation. Complete terrain-context responses remain fresh for 30 minutes;
+partial responses are immediately stale and can be retried from the section without reloading the
+page. Previously fetched results stay visible during a retry and after a refresh request fails.
+An ongoing GUGiK outage still produces an explicit partial result.
+
 The terrain section also offers a **Woda na mapie** view using the existing OpenLayers map stack.
 The Polish view switch sits over the map in place of the former oblique-view and reset controls.
 It shows the four nearest listed water objects as source lines or polygons, with matching numbers

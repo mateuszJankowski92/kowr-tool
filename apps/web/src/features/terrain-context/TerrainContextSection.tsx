@@ -14,9 +14,10 @@ import {
   LandPlot,
   Rotate3D,
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { getTerrainContext } from "../../api/terrain-context";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import { Spinner } from "../../components/ui/spinner";
 import { PrintParcelMap } from "../reports/PrintParcelMap";
 import { ReportSectionHeader } from "../reports/ReportSectionHeader";
@@ -109,11 +110,10 @@ function formatTimestamp(value: string): string {
 }
 
 function useNearViewport() {
-  const ref = useRef<HTMLDivElement>(null);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [isNear, setIsNear] = useState(() => typeof IntersectionObserver === "undefined");
 
   useEffect(() => {
-    const element = ref.current;
     if (!element || isNear || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -126,9 +126,9 @@ function useNearViewport() {
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [isNear]);
+  }, [element, isNear]);
 
-  return { ref, isNear };
+  return { ref: setElement, isNear, activate: () => setIsNear(true) };
 }
 
 function TerrainLoading() {
@@ -530,13 +530,19 @@ function TerrainSourceDetails({
 function TerrainResult({
   parcel,
   result,
+  onRetry,
+  isRetrying,
+  retryFailed,
 }: {
   parcel: ParcelResponse;
   result: TerrainContextResponse;
+  onRetry: () => void;
+  isRetrying: boolean;
+  retryFailed: boolean;
 }) {
   const print = useReportPrint();
   const parcelIdentifier = parcel.identifier;
-  const { ref, isNear } = useNearViewport();
+  const { ref, isNear, activate } = useNearViewport();
   const [mapView, setMapView] = useState<"terrain" | "water">(
     result.terrain.status === "available" ? "terrain" : "water",
   );
@@ -591,6 +597,18 @@ function TerrainResult({
           }
           title="Teren, woda i użytkowanie działki"
         />
+        {!print && result.status !== "complete" && (
+          <div className="mt-4" aria-live="polite">
+            <RetryButton isRetrying={isRetrying} onRetry={onRetry}>
+              Ponów pobieranie brakujących danych
+            </RetryButton>
+            {retryFailed && (
+              <p className="mt-2 text-sm text-muted-foreground" role="alert">
+                Nie udało się odświeżyć danych. Nadal pokazujemy ostatni pobrany wynik.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {mapView === "terrain" && result.terrain.status === "available" && (
@@ -599,11 +617,9 @@ function TerrainResult({
       {result.terrain.status === "unavailable" && (
         <TerrainUnavailable
           message={
-            print
-              ? result.terrain.reason === "no-data"
-                ? "Model terenu GUGiK nie zawiera użytecznych komórek dla tej działki."
-                : "Model terenu GUGiK jest chwilowo niedostępny."
-              : result.terrain.message
+            result.terrain.reason === "no-data"
+              ? "Nie uzyskano użytecznych próbek wysokości w granicach tej działki."
+              : "Nie udało się pobrać modelu terenu z GUGiK. To nie potwierdza braku danych dla tej działki."
           }
         />
       )}
@@ -621,7 +637,10 @@ function TerrainResult({
               {result.terrain.status === "available" && (
                 <button
                   aria-pressed={mapView === "terrain"}
-                  onClick={() => setMapView("terrain")}
+                  onClick={() => {
+                    setMapView("terrain");
+                    activate();
+                  }}
                   type="button"
                 >
                   <Rotate3D aria-hidden="true" />
@@ -679,6 +698,9 @@ function TerrainResult({
                 <div className="terrain-model-placeholder">
                   <Rotate3D aria-hidden="true" />
                   <span>Widok 3D uruchomi się, gdy przewiniesz bliżej.</span>
+                  <Button onClick={activate} type="button" variant="outline">
+                    Wczytaj widok 3D
+                  </Button>
                 </div>
               )}
             </div>
@@ -716,14 +738,23 @@ export function TerrainContextSection({ parcel }: { parcel: ParcelResponse }) {
     queryKey: ["terrain-context", parcel.identifier],
     queryFn: ({ signal }) => getTerrainContext(parcel.identifier, signal),
     retry: 1,
-    staleTime: 30 * 60 * 1_000,
+    staleTime: (query) => (query.state.data?.status === "complete" ? 30 * 60 * 1_000 : 0),
   });
 
   if (query.isPending) return <TerrainLoading />;
-  if (query.isError) {
+  if (query.isError && !query.data) {
     return <TerrainError isRetrying={query.isFetching} onRetry={() => void query.refetch()} />;
   }
-  return <TerrainResult key={parcel.identifier} parcel={parcel} result={query.data} />;
+  return (
+    <TerrainResult
+      key={parcel.identifier}
+      parcel={parcel}
+      result={query.data}
+      onRetry={() => void query.refetch()}
+      isRetrying={query.isFetching}
+      retryFailed={query.isRefetchError}
+    />
+  );
 }
 
 import { RetryButton } from "../../components/RetryButton";

@@ -1,6 +1,6 @@
 import type { ParcelResponse, TerrainContextResponse } from "@kowr/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getTerrainContext } from "../../api/terrain-context";
 import { DataSourceDrawerProvider } from "../reports/DataSourceDrawer";
@@ -178,8 +178,11 @@ const terrain = {
   },
 } satisfies TerrainContextResponse;
 
-function renderSection() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderSection(
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+  }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <DataSourceDrawerProvider>
@@ -189,12 +192,104 @@ function renderSection() {
   );
 }
 
+function mockVisibilityObserver() {
+  const observers: {
+    notify: (isIntersecting: boolean) => void;
+    observe: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+  }[] = [];
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe = vi.fn();
+      disconnect = vi.fn();
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+        observers.push({
+          observe: this.observe,
+          disconnect: this.disconnect,
+          notify: (isIntersecting) => callback([{ isIntersecting }]),
+        });
+      }
+    },
+  );
+  return observers;
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("TerrainContextSection", () => {
+  it("starts observing a terrain container mounted after a successful retry", async () => {
+    const observers = mockVisibilityObserver();
+    const recovered: TerrainContextResponse = {
+      ...terrain,
+      surroundings: {
+        ...terrain.surroundings,
+        hydrology: {
+          ...terrain.surroundings.hydrology,
+          objectCount: 0,
+          objects: [],
+          nearestDistanceMeters: null,
+        },
+      },
+    };
+    vi.mocked(getTerrainContext)
+      .mockResolvedValueOnce({
+        ...recovered,
+        status: "partial",
+        terrain: { status: "unavailable", reason: "provider-error", message: "Unavailable" },
+      })
+      .mockResolvedValueOnce(recovered);
+    renderSection();
+    const retry = await screen.findByRole("button", {
+      name: "Ponów pobieranie brakujących danych",
+    });
+    expect(observers).toHaveLength(0);
+    fireEvent.click(retry);
+
+    expect(await screen.findByText("Dane dostępne")).not.toBeNull();
+    await waitFor(() => expect(observers).toHaveLength(1));
+    expect(observers[0]?.observe).toHaveBeenCalledWith(
+      document.querySelector(".terrain-model-lazy"),
+    );
+    act(() => observers[0]?.notify(false));
+    expect(screen.queryByText("Model terenu 3D")).toBeNull();
+    act(() => observers[0]?.notify(true));
+    expect(await screen.findByText("Model terenu 3D")).not.toBeNull();
+    expect(observers[0]?.disconnect).toHaveBeenCalled();
+  });
+
+  it("loads terrain immediately when selected after visiting the water map", async () => {
+    const observers = mockVisibilityObserver();
+    vi.mocked(getTerrainContext).mockResolvedValue(terrain);
+    renderSection();
+    await screen.findByText("Dane dostępne");
+    expect(observers).toHaveLength(1);
+    expect(screen.queryByText("Model terenu 3D")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Woda na mapie" }));
+    expect(await screen.findByText("Water map: all objects")).not.toBeNull();
+    expect(observers[0]?.disconnect).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Teren 3D" }));
+    expect(await screen.findByText("Model terenu 3D")).not.toBeNull();
+  });
+
+  it("lets the user load terrain even if the visibility observer never reports it", async () => {
+    const observers = mockVisibilityObserver();
+    vi.mocked(getTerrainContext).mockResolvedValue(terrain);
+    const section = renderSection();
+    const load = await screen.findByRole("button", { name: "Wczytaj widok 3D" });
+    expect(screen.queryByText("Model terenu 3D")).toBeNull();
+
+    fireEvent.click(load);
+    expect(await screen.findByText("Model terenu 3D")).not.toBeNull();
+    section.unmount();
+    expect(observers[0]?.disconnect).toHaveBeenCalled();
+  });
+
   it("presents terrain, nearby water and land-use shares with their sources", async () => {
     vi.mocked(getTerrainContext).mockResolvedValue(terrain);
     renderSection();
@@ -305,6 +400,101 @@ describe("TerrainContextSection", () => {
     expect(await screen.findByText("Model wysokościowy jest niedostępny")).not.toBeNull();
     expect(screen.getByText("Struga")).not.toBeNull();
     expect(screen.getByText("Część danych")).not.toBeNull();
+  });
+
+  it("recovers a partial analysis without hiding water data during the retry", async () => {
+    let resolveRetry: ((value: TerrainContextResponse) => void) | undefined;
+    vi.mocked(getTerrainContext)
+      .mockResolvedValueOnce({
+        ...terrain,
+        status: "partial",
+        terrain: {
+          status: "unavailable",
+          reason: "provider-error",
+          message: "The GUGiK terrain model is temporarily unavailable.",
+        },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve;
+          }),
+      );
+    renderSection();
+
+    const retry = await screen.findByRole("button", {
+      name: "Ponów pobieranie brakujących danych",
+    });
+    expect(screen.getByText(/To nie potwierdza braku danych/)).not.toBeNull();
+    fireEvent.click(retry);
+    await waitFor(() => expect(retry.getAttribute("aria-busy")).toBe("true"));
+    expect(retry.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("Struga")).not.toBeNull();
+    expect(screen.getByText("Część danych")).not.toBeNull();
+
+    await act(async () => resolveRetry?.(terrain));
+    expect(await screen.findByText("Dane dostępne")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Teren 3D" }));
+    expect(await screen.findByText(/różnicę wysokości 3,2 m/)).not.toBeNull();
+    expect(screen.queryByText("Model wysokościowy jest niedostępny")).toBeNull();
+  });
+
+  it("preserves the partial result when a manual refresh fails", async () => {
+    vi.mocked(getTerrainContext)
+      .mockResolvedValueOnce({
+        ...terrain,
+        status: "partial",
+        terrain: { status: "unavailable", reason: "provider-error", message: "Unavailable" },
+      })
+      .mockRejectedValue(new Error("Network unavailable"));
+    renderSection();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Ponów pobieranie brakujących danych",
+      }),
+    );
+
+    expect(await screen.findByRole("alert")).not.toBeNull();
+    expect(screen.getByText(/Nadal pokazujemy ostatni pobrany wynik/)).not.toBeNull();
+    expect(screen.getByText("Struga")).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Użytkowanie działki" })).not.toBeNull();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", {
+            name: "Ponów pobieranie brakujących danych",
+          })
+          .hasAttribute("disabled"),
+      ).toBe(false),
+    );
+  });
+
+  it("refreshes a cached partial result on entry instead of keeping it fresh for 30 minutes", async () => {
+    const client = new QueryClient();
+    client.setQueryData(["terrain-context", parcel.identifier], {
+      ...terrain,
+      status: "partial",
+      terrain: { status: "unavailable", reason: "provider-error", message: "Unavailable" },
+    });
+    vi.mocked(getTerrainContext).mockResolvedValue(terrain);
+    renderSection(client);
+
+    expect(await screen.findByText("Dane dostępne")).not.toBeNull();
+    expect(getTerrainContext).toHaveBeenCalledOnce();
+  });
+
+  it("reuses a fresh complete result without another request", () => {
+    const client = new QueryClient();
+    client.setQueryData(["terrain-context", parcel.identifier], terrain);
+    renderSection(client);
+
+    expect(screen.getByText("Dane dostępne")).not.toBeNull();
+    expect(getTerrainContext).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", {
+        name: "Ponów pobieranie brakujących danych",
+      }),
+    ).toBeNull();
   });
 
   it("offers a retry when terrain is unavailable", async () => {
